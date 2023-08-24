@@ -1,16 +1,12 @@
 version: 2.1
 
-orbs:
-  npm-publisher: uraway/npm-publisher@0.2.0
-  kurtosis-docs-checker: kurtosis-tech/docs-checker@0.2.1
-
 parameters:
   go-version:
     type: string
-    default: 1.16
-  node-version:
+    default: "1.19"
+  docker-engine-version:
     type: string
-    default: 16.13.0
+    default: "20.10.7"
 
 # NOTE: Because CircleCI jobs run on separate machines from each other, we duplicate steps (like checkout) between jobs. This is because doing the "correct" DRY
 #  refactoring of, "one job for checkout, one job for build Docker image, etc." would require a) persisting files between jobs and b) persisting Docker images between
@@ -18,7 +14,7 @@ parameters:
 #  images), so we run everything inside a single job.
 # See also: https://discuss.circleci.com/t/can-docker-images-be-preserved-between-jobs-in-a-workflow-without-a-manual-load-save/23388/12
 jobs:
-  check_golang:
+  build_api_golang:
     docker:
       - image: "cimg/go:<< pipeline.parameters.go-version>>"
     steps:
@@ -31,16 +27,12 @@ jobs:
             circleci-agent step halt
           fi
 
-      # The 'git config' and 'go env' steps are to allow Go to read modules from our private Github repos
-      # The KURTOSISBOT_GITHUB_TOKEN is a secret provided at CI build time
       - run: |
-          git config --global url."https://${KURTOSISBOT_GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
-          go env -w "GOPRIVATE=github.com/kurtosis-tech/*"
-          golang/scripts/build.sh
+          api/golang/scripts/build.sh
 
-  check_typescript:
+  build_server:
     docker:
-      - image: "cimg/node:<< pipeline.parameters.node-version>>"
+      - image: "cimg/go:<< pipeline.parameters.go-version>>"
     steps:
       - checkout
 
@@ -51,54 +43,61 @@ jobs:
             circleci-agent step halt
           fi
 
-      - run: typescript/scripts/build.sh
+      - run: |
+          server/scripts/build.sh
 
-  publish_typescript:
+  publish_server_image:
     docker:
-      - image: "cimg/node:<< pipeline.parameters.node-version>>"
+      - image: "cimg/go:<< pipeline.parameters.go-version >>"
     steps:
       - checkout
-      - run: typescript/scripts/build.sh
-      - npm-publisher/publish-from-package-version:
-          package-path: typescript
-          publish-token-variable: NPMJS_AUTH_TOKEN
+
+      - setup_remote_docker:
+          version: "<< pipeline.parameters.docker-engine-version>>"
+      - run: echo "${DOCKER_PASSWORD}" | docker login -u ${DOCKER_USERNAME} --password-stdin
+
+      - run: |
+          skip_docker_image_building=true
+          server/scripts/build.sh
+      - run: |
+          set -euo pipefail
+          source server/scripts/_constants.env
+          dockerfile_filepath='server/Dockerfile'
+          version_build="$(./server/scripts/get-docker-tag.sh)"
+          version_to_publish="${CIRCLE_TAG}" # this job is run only on tags
+          echo "Version that was built: ${version_build}"
+          echo "Version that will be published: ${version_to_publish}"
+          image_name_with_version="${IMAGE_ORG_AND_REPO}:${version_build}"
+          image_name_to_publish_semver="${IMAGE_ORG_AND_REPO}:${version_to_publish}"
+          image_name_to_publish_latest="${IMAGE_ORG_AND_REPO}:latest"
+          push_to_dockerhub=true 
+          server/scripts/docker-image-builder.sh "${push_to_dockerhub}" "${dockerfile_filepath}" "${image_name_with_version}" "${image_name_to_publish_semver}" "${image_name_to_publish_latest}"
 
 workflows:
   build:
     jobs:
-      # -- PR check jobs ------------------------------------------
-      - kurtosis-docs-checker/check-docs:
-          markdown-link-check-config-json: "{}"
-          filters:
-            branches:
-              ignore:
-                - develop
-                - main
-      - check_golang:
+      - build_api_golang:
           context:
-            # This pulls in KurtosisBot's Github token, so that we can read from our private repos
             - github-user
           filters:
             branches:
               ignore:
                 - develop
                 - main
-      - check_typescript:
+      - build_server:
+          context:
+            - github-user
           filters:
             branches:
               ignore:
                 - develop
                 - main
-      # -- End PR check jobs ---------------------------------------
-
-      # -- Artifact-publishing jobs --------------------------------
-      # TODO UNCOMMENT WHEN READY
-      #- publish_typescript:
-      #    context:
-      #      - npmjs-user
-      #    filters:
-      #      branches:
-      #        ignore: /.*/
-      #      tags:
-      #        only: /^[0-9]+\.[0-9]+\.[0-9]+$/
-      # -- End artifact-publishing jobs ----------------------------
+      - publish_server_image:
+          context:
+            - docker-user
+            - github-user
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^[0-9]+\.[0-9]+\.[0-9]+$/

@@ -3,13 +3,14 @@
 
 set -euo pipefail   # Bash "strict mode"
 script_dirpath="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-lang_root_dirpath="$(dirname "${script_dirpath}")"
-
+root_dirpath="$(dirname "${script_dirpath}")"
 
 # ==================================================================================================
 #                                             Main Logic
 # ==================================================================================================
-cd "${lang_root_dirpath}"
-yarn install
-yarn test
-yarn build
+
+cd "${root_dirpath}"
+
+# Run tests in API golang module
+cd "${root_dirpath}"
+go test ./...

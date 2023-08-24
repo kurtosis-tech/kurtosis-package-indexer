@@ -3,10 +3,39 @@ package kurtosis_package_indexer;
 
 option go_package = "github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated";
 
+import "google/protobuf/empty.proto";
+
 service KurtosisPackageIndexer {
   rpc Ping(IndexerPing) returns (IndexerPong);
+
+  rpc GetPackages(google.protobuf.Empty) returns (GetPackagesResponse) {};
 }
 
 message IndexerPing {}
 
 message IndexerPong {}
+
+message GetPackagesResponse {
+  repeated KurtosisPackage packages = 1;
+}
+
+message KurtosisPackage {
+  string name = 1;
+
+  repeated PackageArg args = 2;
+}
+
+message PackageArg {
+  string name = 1;
+
+  bool is_required = 2;
+
+  optional PackageArgType type = 3;
+}
+
+enum PackageArgType {
+  BOOL = 0;
+  STRING = 1;
+  INTEGER = 2;
+  FLOAT = 3;
+}

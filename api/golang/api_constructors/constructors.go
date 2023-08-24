@@ -13,6 +13,9 @@ func NewKurtosisPackage(name string, args ...*generated.PackageArg) *generated.K
 	}
 }
 
+// NewUntypedPackageArg creates an argument with no type.
+// Right now, supported types are only STRING, INT, FLOAT and BOOL, so this should be used for more evolved arguments
+// like dictionaries or lists. Support for those can be added later if needed
 func NewUntypedPackageArg(name string, isRequired bool) *generated.PackageArg {
 	return &generated.PackageArg{
 		Name:       name,

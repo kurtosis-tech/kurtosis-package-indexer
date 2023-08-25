@@ -4,14 +4,19 @@ import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/api_constructors"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
+	"github.com/kurtosis-tech/stacktrace"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type KurtosisPackageIndexer struct {
+	store store.KurtosisIndexerStore
 }
 
-func NewKurtosisPackageIndexer() *KurtosisPackageIndexer {
-	return &KurtosisPackageIndexer{}
+func NewKurtosisPackageIndexer(store store.KurtosisIndexerStore) *KurtosisPackageIndexer {
+	return &KurtosisPackageIndexer{
+		store: store,
+	}
 }
 
 func (resource *KurtosisPackageIndexer) Ping(_ context.Context, _ *generated.IndexerPing) (*generated.IndexerPong, error) {
@@ -19,12 +24,9 @@ func (resource *KurtosisPackageIndexer) Ping(_ context.Context, _ *generated.Ind
 }
 
 func (resource *KurtosisPackageIndexer) GetPackages(_ context.Context, _ *emptypb.Empty) (*generated.GetPackagesResponse, error) {
-	// TODO: implement
-	hyperlanePackage := api_constructors.NewKurtosisPackage(
-		"github.com/kurtosis-tech/hyperlane-package",
-		api_constructors.NewUntypedPackageArg("origin_chain", true),
-		api_constructors.NewUntypedPackageArg("remote_chains", true),
-		api_constructors.NewUntypedPackageArg("aws_env", false),
-	)
-	return api_constructors.NewGetPackagesResponse(hyperlanePackage), nil
+	packages, err := resource.store.GetKurtosisPackages()
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "An error occurred fetching the packages from the store")
+	}
+	return api_constructors.NewGetPackagesResponse(packages...), nil
 }

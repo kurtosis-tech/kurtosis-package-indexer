@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated/generatedconnect"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/crawler"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/resource"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
 	connect_server "github.com/kurtosis-tech/kurtosis/connect-server"
 	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
@@ -33,15 +35,24 @@ func main() {
 	ctx := context.Background()
 	configureLogger()
 
-	if err := runServer(ctx); err != nil {
-		logrus.Errorf("An error occurred when running the Kurtosis package indexer")
-		logrus.Exit(failureExitCode)
+	// Setup the store which will store all the packages. For now all in memory
+	indexerStore := store.NewInMemoryStore()
+
+	// Setup the crawler which will populate the store on a periodical basis
+	indexerCrawler := crawler.NewGithubCrawler(indexerStore)
+	if err := indexerCrawler.Schedule(ctx); err != nil {
+		exitFailure(err)
+	}
+	defer indexerCrawler.Close()
+
+	if err := runServer(ctx, indexerStore); err != nil {
+		exitFailure(err)
 	}
 	logrus.Exit(successExitCode)
 }
 
-func runServer(ctx context.Context) error {
-	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer()
+func runServer(ctx context.Context, indexerStore store.KurtosisIndexerStore) error {
+	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer(indexerStore)
 	connectGoHandler := resource.NewKurtosisPackageIndexerHandlerImpl(kurtosisPackageIndexerResource)
 
 	apiPath, handler := generatedconnect.NewKurtosisPackageIndexerHandler(connectGoHandler)
@@ -97,4 +108,9 @@ func formatFilenameFunctionForLogs(filename string, functionName string) string 
 	output.WriteString(functionName)
 	output.WriteString("]")
 	return output.String()
+}
+
+func exitFailure(err error) {
+	logrus.Error(err.Error())
+	logrus.Exit(failureExitCode)
 }

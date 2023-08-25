@@ -38,4 +38,6 @@ protoc \
   --go_opt=module="${api_golang_module}" \
   --go-grpc_opt=module="${api_golang_module}" \
   --go-grpc_opt=require_unimplemented_servers=false \
+  --connect-go_out="${api_golang_proto_generated_abs_dir}" \
+  --connect-go_opt=module="${api_golang_module}" \
   "${api_proto_abs_dir}"/*.proto

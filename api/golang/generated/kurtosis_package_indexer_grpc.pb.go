@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v4.23.4
-// source: kurtosis-package-indexer.proto
+// source: kurtosis_package_indexer.proto
 
 package generated
 
@@ -141,5 +141,5 @@ var KurtosisPackageIndexer_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "kurtosis-package-indexer.proto",
+	Metadata: "kurtosis_package_indexer.proto",
 }

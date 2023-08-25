@@ -2,12 +2,11 @@ package main
 
 import (
 	"context"
-	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated/generatedconnect"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/resource"
-	minimal_grpc_server "github.com/kurtosis-tech/minimal-grpc-server/golang/server"
-	"github.com/kurtosis-tech/stacktrace"
+	connect_server "github.com/kurtosis-tech/kurtosis/connect-server"
+	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"path"
 	"runtime"
 	"strings"
@@ -32,6 +31,36 @@ const (
 
 func main() {
 	ctx := context.Background()
+	configureLogger()
+
+	if err := runServer(ctx); err != nil {
+		logrus.Errorf("An error occurred when running the Kurtosis package indexer")
+		logrus.Exit(failureExitCode)
+	}
+	logrus.Exit(successExitCode)
+}
+
+func runServer(ctx context.Context) error {
+	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer()
+	connectGoHandler := resource.NewKurtosisPackageIndexerHandlerImpl(kurtosisPackageIndexerResource)
+
+	apiPath, handler := generatedconnect.NewKurtosisPackageIndexerHandler(connectGoHandler)
+
+	apiServer := connect_server.NewConnectServer(
+		kurtosisPackageIndexerPort,
+		grpcServerStopGracePeriod,
+		handler,
+		apiPath,
+	)
+
+	logrus.Infof("Kurtosis Package Indexer running and listening on port %d", kurtosisPackageIndexerPort)
+	if err := apiServer.RunServerUntilInterruptedWithCors(cors.AllowAll()); err != nil {
+		logrus.Error("An error occurred running the server", err)
+	}
+	return nil
+}
+
+func configureLogger() {
 	logrus.SetLevel(logrus.DebugLevel)
 	// This allows the filename & function to be reported
 	logrus.SetReportCaller(logMethodAlongWithLogLine)
@@ -58,34 +87,6 @@ func main() {
 			return emptyFunctionName, formatFilenameFunctionForLogs(filename, functionName)
 		},
 	})
-
-	if err := runServer(ctx); err != nil {
-		logrus.Errorf("An error occurred when running the Kurtosis package indexer")
-		logrus.Exit(failureExitCode)
-	}
-	logrus.Exit(successExitCode)
-}
-
-func runServer(ctx context.Context) error {
-	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer()
-
-	kurtosisPackageIndexerRegistrationFunc := func(grpcServer *grpc.Server) {
-		generated.RegisterKurtosisPackageIndexerServer(grpcServer, kurtosisPackageIndexerResource)
-	}
-
-	kurtosisPackageIndexerServer := minimal_grpc_server.NewMinimalGRPCServer(
-		kurtosisPackageIndexerPort,
-		grpcServerStopGracePeriod,
-		[]func(*grpc.Server){
-			kurtosisPackageIndexerRegistrationFunc,
-		},
-	)
-
-	logrus.Infof("Kurtosis Package Indexer running and listening on port %d", kurtosisPackageIndexerPort)
-	if err := kurtosisPackageIndexerServer.RunUntilStopped(ctx.Done()); err != nil {
-		return stacktrace.Propagate(err, "An error occurred running the Kurtosis Package Indexer")
-	}
-	return nil
 }
 
 func formatFilenameFunctionForLogs(filename string, functionName string) string {

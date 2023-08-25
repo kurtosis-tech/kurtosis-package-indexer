@@ -13,6 +13,11 @@ const (
 	mainFunctionName = "run"
 )
 
+var (
+	argTypeInCommentRegexp         = regexp.MustCompile(`#\s*type\s*:\s*([a-zA-Z]*)\s*`)
+	argTypeInCommentRegexpMatchNum = 2
+)
+
 func ParseStarlarkMainDoStar(kurtosisYamlContent *github.RepositoryContent) (*KurtosisMainDotStar, error) {
 	rawFileContent, err := kurtosisYamlContent.GetContent()
 	if err != nil {
@@ -102,15 +107,15 @@ func parseTypeFromCommentsIfPossible(comments *syntax.Comments) (string, bool) {
 }
 
 func parseTypeFromCommentIfPossible(comment string) (string, bool) {
-	rp := regexp.MustCompile("#\\s*type\\s*:\\s*([a-zA-Z]*)\\s*")
-	if !rp.MatchString(comment) {
+	if !argTypeInCommentRegexp.MatchString(comment) {
 		logrus.Infof("Comment '%s' does not match the type regexp. Type cannot be inferred for this argument", comment)
 		return "", false
 	}
-	match := rp.FindStringSubmatch(comment)
-	if len(match) != 2 {
-		logrus.Infof("Comment '%s' cannot be parsed as the match were: %v. Type cannot be inferred for this argument", comment, match)
+	matches := argTypeInCommentRegexp.FindStringSubmatch(comment)
+	if len(matches) != argTypeInCommentRegexpMatchNum {
+		logrus.Infof("Comment '%s' cannot be parsed as the match were: %v. Type cannot be inferred for this argument",
+			comment, matches)
 		return "", false
 	}
-	return match[1], true
+	return matches[1], true
 }

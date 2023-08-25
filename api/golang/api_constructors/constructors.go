@@ -6,10 +6,11 @@ func NewGetPackagesResponse(packages ...*generated.KurtosisPackage) *generated.G
 	return &generated.GetPackagesResponse{Packages: packages}
 }
 
-func NewKurtosisPackage(name string, args ...*generated.PackageArg) *generated.KurtosisPackage {
+func NewKurtosisPackage(name string, stars uint64, args ...*generated.PackageArg) *generated.KurtosisPackage {
 	return &generated.KurtosisPackage{
-		Name: name,
-		Args: args,
+		Name:  name,
+		Args:  args,
+		Stars: stars,
 	}
 }
 

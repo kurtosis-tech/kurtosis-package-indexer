@@ -5,13 +5,15 @@ go 1.19
 replace github.com/kurtosis-tech/kurtosis-package-indexer/api/golang => ../api/golang
 
 require (
-	github.com/kurtosis-tech/kurtosis-package-indexer/api/golang v0.0.0 // local dependency
+	connectrpc.com/connect v1.11.0
+	github.com/google/go-github/v54 v54.0.0
+	github.com/kurtosis-tech/kurtosis-package-indexer/api/golang v0.0.0-00010101000000-000000000000
+	github.com/kurtosis-tech/kurtosis/connect-server v0.0.0-20230825003324-75d481e0db8c
 	github.com/kurtosis-tech/stacktrace v0.0.0-20211028211901-1c67a77b5409
+	github.com/rs/cors v1.9.0
 	github.com/sirupsen/logrus v1.9.3
-	google.golang.org/grpc v1.57.0 // indirect
-)
-
-require (
+	github.com/stretchr/testify v1.8.4
+	go.starlark.net v0.0.0-20230814145427-12f4cb8177e4
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -30,12 +32,5 @@ require (
 	golang.org/x/text v0.12.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230803162519-f966b187b2e5 // indirect
-)
-
-require (
-	connectrpc.com/connect v1.11.0
-	github.com/google/go-github/v54 v54.0.0
-	github.com/kurtosis-tech/kurtosis/connect-server v0.0.0-20230825003324-75d481e0db8c
-	github.com/rs/cors v1.9.0
-	github.com/stretchr/testify v1.8.3
+	google.golang.org/grpc v1.57.0 // indirect
 )

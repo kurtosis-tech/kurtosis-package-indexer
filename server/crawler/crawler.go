@@ -4,16 +4,19 @@ import (
 	"context"
 	"github.com/google/go-github/v54/github"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/api_constructors"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/sirupsen/logrus"
+	"strings"
 	"time"
 )
 
 const (
 	crawlFrequency = 2 * time.Hour
 
-	kurtosisYamlFileName = "kurtosis.yml"
+	kurtosisYamlFileName        = "kurtosis.yml"
+	starlarkMainDotStarFileName = "main.star"
 
 	githubPageSize = 100 // that's the maximum allowed by GitHub API
 )
@@ -39,6 +42,10 @@ func (crawler *GithubCrawler) Schedule(ctx context.Context) error {
 	// TODO: Use kurtosisbot API token when we reach GH rate limits
 	githubClient := github.NewClient(nil)
 
+	// ticker does not immediately tick, it waits for the duration to elapse before issuing its first tick.
+	// So we call it once manually to populate the store
+	crawler.doCrawlNoFailure(ctx, time.Now(), githubClient)
+
 	go func() {
 		for {
 			select {
@@ -47,14 +54,7 @@ func (crawler *GithubCrawler) Schedule(ctx context.Context) error {
 				ticker.Stop()
 				return
 			case tickerTime := <-ticker.C:
-				logrus.Info("Crawling Github for Kurtosis packages")
-				repoUpdated, repoRemoved, err := crawler.crawlKurtosisPackages(ctx, githubClient)
-				if err != nil {
-					logrus.Errorf("An error occurred crawling Github for Kurtosis packages. Will try again in '%v'. "+
-						"Error was:\n%v", crawlFrequency, err.Error())
-				}
-				logrus.Infof("Crawling finished in %v. Repository updated: %d - removed: %d",
-					time.Since(tickerTime), repoUpdated, repoRemoved)
+				crawler.doCrawlNoFailure(ctx, tickerTime, githubClient)
 			}
 		}
 	}()
@@ -64,6 +64,17 @@ func (crawler *GithubCrawler) Schedule(ctx context.Context) error {
 func (crawler *GithubCrawler) Close() error {
 	close(crawler.done)
 	return nil
+}
+
+func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime time.Time, githubClient *github.Client) {
+	logrus.Info("Crawling Github for Kurtosis packages")
+	repoUpdated, repoRemoved, err := crawler.crawlKurtosisPackages(ctx, githubClient)
+	if err != nil {
+		logrus.Errorf("An error occurred crawling Github for Kurtosis packages. Will try again in '%v'. "+
+			"Error was:\n%v", crawlFrequency, err.Error())
+	}
+	logrus.Infof("Crawling finished in %v. Repository updated: %d - removed: %d",
+		time.Since(tickerTime), repoUpdated, repoRemoved)
 }
 
 func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubClient *github.Client) (int, int, error) {
@@ -87,9 +98,7 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubC
 			continue
 		}
 
-		kurtosisPackageApi := api_constructors.NewKurtosisPackage(
-			string(kurtosisPackageContent.Identifier),
-		)
+		kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)
 		if err = crawler.store.UpsertPackage(kurtosisPackageApi); err != nil {
 			logrus.Errorf("An error occurred updating the package '%s' in the indexer store. Stored package data"+
 				"might be out of date until next refresh.", kurtosisPackageContent.Identifier)
@@ -114,6 +123,31 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubC
 		}
 	}
 	return repoUpdated, repoRemoved, nil
+}
+
+func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *generated.KurtosisPackage {
+	var kurtosisPackageArgsApi []*generated.PackageArg
+	for _, arg := range kurtosisPackageContent.PackageArguments {
+		var convertedPackageArg *generated.PackageArg
+		convertedPackageArgType, ok := generated.PackageArgType_value[strings.ToUpper(arg.Type)]
+		if ok {
+			convertedPackageArg = api_constructors.NewPackageArg(
+				arg.Name,
+				arg.IsRequired,
+				generated.PackageArgType(convertedPackageArgType))
+		} else {
+			if arg.Type != "" {
+				logrus.Warnf("Argument type '%s' for argument '%s' in package '%s' is no known and will be dropped",
+					arg.Type, arg.Name, kurtosisPackageContent.Identifier)
+			}
+			convertedPackageArg = api_constructors.NewUntypedPackageArg(arg.Name, arg.IsRequired)
+		}
+		kurtosisPackageArgsApi = append(kurtosisPackageArgsApi, convertedPackageArg)
+	}
+	return api_constructors.NewKurtosisPackage(
+		string(kurtosisPackageContent.Identifier),
+		kurtosisPackageArgsApi...,
+	)
 }
 
 func getKurtosisPackageRepositories(ctx context.Context, client *github.Client) ([]*github.Repository, error) {
@@ -164,20 +198,33 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, g
 		Ref: "",
 	}
 
-	fileContentResult, _, resp, err := client.Repositories.GetContents(ctx, repoOwner, repoName, kurtosisYamlFileName, repoGetContentOpts)
+	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, repoOwner, repoName, kurtosisYamlFileName, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
 		// kurtosis.yml file not found in the repo.
 		return nil, false, nil
 	} else if err != nil {
 		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s'", repoName)
 	}
-
-	kurtosisPackageName, err := ParseKurtosisYaml(fileContentResult)
+	kurtosisPackageName, err := ParseKurtosisYaml(kurtosisYamlFileContentResult)
 	if err != nil {
 		return nil, false, stacktrace.Propagate(err, "An error occurred parsing '%s' YAML file", kurtosisYamlFileName)
 	}
+
+	starlarkMainDotStartContentResult, _, resp, err := client.Repositories.GetContents(ctx, repoOwner, repoName, starlarkMainDotStarFileName, repoGetContentOpts)
+	if err != nil && resp != nil && resp.StatusCode == 404 {
+		// main.star file not found in the repo.
+		return nil, false, nil
+	} else if err != nil {
+		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s'", repoName)
+	}
+	mainDotStarParsedContent, err := ParseStarlarkMainDoStar(starlarkMainDotStartContentResult)
+	if err != nil {
+		return nil, false, stacktrace.Propagate(err, "An error occurred parsing '%s' YAML file", kurtosisYamlFileName)
+	}
+
 	return &KurtosisPackageContent{
-		Identifier: kurtosisPackageName,
-		Stars:      *githubRepository.StargazersCount,
+		Identifier:       kurtosisPackageName,
+		Stars:            *githubRepository.StargazersCount,
+		PackageArguments: mainDotStarParsedContent.Arguments,
 	}, true, nil
 }

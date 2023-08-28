@@ -71,7 +71,10 @@ func (crawler *GithubCrawler) authenticateIfTokenProvided(ctx context.Context) *
 	githubTokenMaybe := os.Getenv(githubUserTokenEnvVarName)
 	if githubTokenMaybe != "" {
 		tokenSource := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: githubTokenMaybe},
+			// nolint: exhaustruct
+			&oauth2.Token{
+				AccessToken: githubTokenMaybe,
+			},
 		)
 		return oauth2.NewClient(ctx, tokenSource)
 	}

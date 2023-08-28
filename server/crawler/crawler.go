@@ -8,12 +8,16 @@ import (
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/oauth2"
+	"net/http"
+	"os"
 	"strings"
 	"time"
 )
 
 const (
-	crawlFrequency = 2 * time.Hour
+	githubUserTokenEnvVarName = "GITHUB_USER_TOKEN"
+	crawlFrequency            = 2 * time.Hour
 
 	kurtosisYamlFileName        = "kurtosis.yml"
 	starlarkMainDotStarFileName = "main.star"
@@ -36,16 +40,13 @@ func NewGithubCrawler(store store.KurtosisIndexerStore) *GithubCrawler {
 }
 
 func (crawler *GithubCrawler) Schedule(ctx context.Context) error {
-	ticker := time.NewTicker(crawlFrequency)
-
-	// For now using an non-authenticated client.
-	// TODO: Use kurtosisbot API token when we reach GH rate limits
-	githubClient := github.NewClient(nil)
+	githubClient := github.NewClient(crawler.authenticateIfTokenProvided(ctx))
 
 	// ticker does not immediately tick, it waits for the duration to elapse before issuing its first tick.
 	// So we call it once manually to populate the store
-	crawler.doCrawlNoFailure(ctx, time.Now(), githubClient)
+	go crawler.doCrawlNoFailure(ctx, time.Now(), githubClient)
 
+	ticker := time.NewTicker(crawlFrequency)
 	go func() {
 		for {
 			select {
@@ -63,6 +64,20 @@ func (crawler *GithubCrawler) Schedule(ctx context.Context) error {
 
 func (crawler *GithubCrawler) Close() error {
 	close(crawler.done)
+	return nil
+}
+
+func (crawler *GithubCrawler) authenticateIfTokenProvided(ctx context.Context) *http.Client {
+	githubTokenMaybe := os.Getenv(githubUserTokenEnvVarName)
+	if githubTokenMaybe != "" {
+		tokenSource := oauth2.StaticTokenSource(
+			// nolint: exhaustruct
+			&oauth2.Token{
+				AccessToken: githubTokenMaybe,
+			},
+		)
+		return oauth2.NewClient(ctx, tokenSource)
+	}
 	return nil
 }
 
@@ -94,7 +109,7 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubC
 		}
 		if !ok {
 			logrus.Warnf("Kurtosis package repository '%s' content could not be retrieved. Does it contain a valid "+
-				"'%s' file at the root of the repository?", repository.GetFullName(), kurtosisYamlFileName)
+				"'%s' and '%s' files at the root of the repository?", repository.GetFullName(), kurtosisYamlFileName, starlarkMainDotStarFileName)
 			continue
 		}
 
@@ -200,7 +215,7 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, g
 
 	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, repoOwner, repoName, kurtosisYamlFileName, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
-		// kurtosis.yml file not found in the repo.
+		logrus.Debugf("No '%s' file in repo '%s'", kurtosisYamlFileName, githubRepository.GetFullName())
 		return nil, false, nil
 	} else if err != nil {
 		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s'", repoName)
@@ -212,7 +227,7 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, g
 
 	starlarkMainDotStartContentResult, _, resp, err := client.Repositories.GetContents(ctx, repoOwner, repoName, starlarkMainDotStarFileName, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
-		// main.star file not found in the repo.
+		logrus.Debugf("No '%s' file in repo '%s'", starlarkMainDotStarFileName, githubRepository.GetFullName())
 		return nil, false, nil
 	} else if err != nil {
 		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s'", repoName)

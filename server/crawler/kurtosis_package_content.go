@@ -7,5 +7,5 @@ type KurtosisPackageContent struct {
 
 	PackageArguments []*StarlarkFunctionArgument
 
-	Stars int
+	Stars uint64
 }

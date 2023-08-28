@@ -19,6 +19,8 @@ message KurtosisPackage {
   string name = 1;
 
   repeated PackageArg args = 2;
+
+  uint64 stars = 3;
 }
 
 message PackageArg {

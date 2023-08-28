@@ -161,6 +161,7 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 	}
 	return api_constructors.NewKurtosisPackage(
 		string(kurtosisPackageContent.Identifier),
+		kurtosisPackageContent.Stars,
 		kurtosisPackageArgsApi...,
 	)
 }
@@ -237,9 +238,13 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, g
 		return nil, false, stacktrace.Propagate(err, "An error occurred parsing '%s' YAML file", kurtosisYamlFileName)
 	}
 
+	var numberOfStars uint64
+	if githubRepository.StargazersCount != nil {
+		numberOfStars = uint64(*githubRepository.StargazersCount)
+	}
 	return &KurtosisPackageContent{
 		Identifier:       kurtosisPackageName,
-		Stars:            *githubRepository.StargazersCount,
+		Stars:            numberOfStars,
 		PackageArguments: mainDotStarParsedContent.Arguments,
 	}, true, nil
 }

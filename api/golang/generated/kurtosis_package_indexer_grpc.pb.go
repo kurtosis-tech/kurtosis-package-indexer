@@ -20,7 +20,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	KurtosisPackageIndexer_Ping_FullMethodName        = "/kurtosis_package_indexer.KurtosisPackageIndexer/Ping"
+	KurtosisPackageIndexer_IsAvailable_FullMethodName = "/kurtosis_package_indexer.KurtosisPackageIndexer/IsAvailable"
 	KurtosisPackageIndexer_GetPackages_FullMethodName = "/kurtosis_package_indexer.KurtosisPackageIndexer/GetPackages"
 )
 
@@ -28,7 +28,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type KurtosisPackageIndexerClient interface {
-	Ping(ctx context.Context, in *IndexerPing, opts ...grpc.CallOption) (*IndexerPong, error)
+	IsAvailable(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetPackages(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetPackagesResponse, error)
 }
 
@@ -40,9 +40,9 @@ func NewKurtosisPackageIndexerClient(cc grpc.ClientConnInterface) KurtosisPackag
 	return &kurtosisPackageIndexerClient{cc}
 }
 
-func (c *kurtosisPackageIndexerClient) Ping(ctx context.Context, in *IndexerPing, opts ...grpc.CallOption) (*IndexerPong, error) {
-	out := new(IndexerPong)
-	err := c.cc.Invoke(ctx, KurtosisPackageIndexer_Ping_FullMethodName, in, out, opts...)
+func (c *kurtosisPackageIndexerClient) IsAvailable(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, KurtosisPackageIndexer_IsAvailable_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (c *kurtosisPackageIndexerClient) GetPackages(ctx context.Context, in *empt
 // All implementations should embed UnimplementedKurtosisPackageIndexerServer
 // for forward compatibility
 type KurtosisPackageIndexerServer interface {
-	Ping(context.Context, *IndexerPing) (*IndexerPong, error)
+	IsAvailable(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	GetPackages(context.Context, *emptypb.Empty) (*GetPackagesResponse, error)
 }
 
@@ -70,8 +70,8 @@ type KurtosisPackageIndexerServer interface {
 type UnimplementedKurtosisPackageIndexerServer struct {
 }
 
-func (UnimplementedKurtosisPackageIndexerServer) Ping(context.Context, *IndexerPing) (*IndexerPong, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
+func (UnimplementedKurtosisPackageIndexerServer) IsAvailable(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsAvailable not implemented")
 }
 func (UnimplementedKurtosisPackageIndexerServer) GetPackages(context.Context, *emptypb.Empty) (*GetPackagesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPackages not implemented")
@@ -88,20 +88,20 @@ func RegisterKurtosisPackageIndexerServer(s grpc.ServiceRegistrar, srv KurtosisP
 	s.RegisterService(&KurtosisPackageIndexer_ServiceDesc, srv)
 }
 
-func _KurtosisPackageIndexer_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IndexerPing)
+func _KurtosisPackageIndexer_IsAvailable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(KurtosisPackageIndexerServer).Ping(ctx, in)
+		return srv.(KurtosisPackageIndexerServer).IsAvailable(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: KurtosisPackageIndexer_Ping_FullMethodName,
+		FullMethod: KurtosisPackageIndexer_IsAvailable_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KurtosisPackageIndexerServer).Ping(ctx, req.(*IndexerPing))
+		return srv.(KurtosisPackageIndexerServer).IsAvailable(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -132,8 +132,8 @@ var KurtosisPackageIndexer_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*KurtosisPackageIndexerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Ping",
-			Handler:    _KurtosisPackageIndexer_Ping_Handler,
+			MethodName: "IsAvailable",
+			Handler:    _KurtosisPackageIndexer_IsAvailable_Handler,
 		},
 		{
 			MethodName: "GetPackages",

@@ -19,8 +19,8 @@ func NewKurtosisPackageIndexer(store store.KurtosisIndexerStore) *KurtosisPackag
 	}
 }
 
-func (resource *KurtosisPackageIndexer) Ping(_ context.Context, _ *generated.IndexerPing) (*generated.IndexerPong, error) {
-	return &generated.IndexerPong{}, nil
+func (resource *KurtosisPackageIndexer) IsAvailable(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
 }
 
 func (resource *KurtosisPackageIndexer) GetPackages(_ context.Context, _ *emptypb.Empty) (*generated.GetPackagesResponse, error) {

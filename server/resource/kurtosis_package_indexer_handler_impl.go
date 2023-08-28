@@ -21,8 +21,8 @@ func NewKurtosisPackageIndexerHandlerImpl(resource generated.KurtosisPackageInde
 	}
 }
 
-func (handler KurtosisPackageIndexerHandlerImpl) Ping(ctx context.Context, req *connect.Request[generated.IndexerPing]) (*connect.Response[generated.IndexerPong], error) {
-	resp, err := handler.resource.Ping(ctx, req.Msg)
+func (handler KurtosisPackageIndexerHandlerImpl) IsAvailable(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	resp, err := handler.resource.IsAvailable(ctx, req.Msg)
 	if err != nil {
 		return nil, err
 	}

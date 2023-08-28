@@ -6,14 +6,10 @@ option go_package = "github.com/kurtosis-tech/kurtosis-package-indexer/api/golan
 import "google/protobuf/empty.proto";
 
 service KurtosisPackageIndexer {
-  rpc Ping(IndexerPing) returns (IndexerPong);
+  rpc IsAvailable (google.protobuf.Empty) returns (google.protobuf.Empty) {};
 
   rpc GetPackages(google.protobuf.Empty) returns (GetPackagesResponse) {};
 }
-
-message IndexerPing {}
-
-message IndexerPong {}
 
 message GetPackagesResponse {
   repeated KurtosisPackage packages = 1;

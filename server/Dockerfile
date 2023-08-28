@@ -7,4 +7,6 @@ WORKDIR /run
 
 COPY ./build/kurtosis-package-indexer ./
 
+EXPOSE 9770
+
 CMD ./kurtosis-package-indexer

@@ -34,9 +34,9 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// KurtosisPackageIndexerPingProcedure is the fully-qualified name of the KurtosisPackageIndexer's
-	// Ping RPC.
-	KurtosisPackageIndexerPingProcedure = "/kurtosis_package_indexer.KurtosisPackageIndexer/Ping"
+	// KurtosisPackageIndexerIsAvailableProcedure is the fully-qualified name of the
+	// KurtosisPackageIndexer's IsAvailable RPC.
+	KurtosisPackageIndexerIsAvailableProcedure = "/kurtosis_package_indexer.KurtosisPackageIndexer/IsAvailable"
 	// KurtosisPackageIndexerGetPackagesProcedure is the fully-qualified name of the
 	// KurtosisPackageIndexer's GetPackages RPC.
 	KurtosisPackageIndexerGetPackagesProcedure = "/kurtosis_package_indexer.KurtosisPackageIndexer/GetPackages"
@@ -45,7 +45,7 @@ const (
 // KurtosisPackageIndexerClient is a client for the kurtosis_package_indexer.KurtosisPackageIndexer
 // service.
 type KurtosisPackageIndexerClient interface {
-	Ping(context.Context, *connect.Request[generated.IndexerPing]) (*connect.Response[generated.IndexerPong], error)
+	IsAvailable(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	GetPackages(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[generated.GetPackagesResponse], error)
 }
 
@@ -60,9 +60,9 @@ type KurtosisPackageIndexerClient interface {
 func NewKurtosisPackageIndexerClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) KurtosisPackageIndexerClient {
 	baseURL = strings.TrimRight(baseURL, "/")
 	return &kurtosisPackageIndexerClient{
-		ping: connect.NewClient[generated.IndexerPing, generated.IndexerPong](
+		isAvailable: connect.NewClient[emptypb.Empty, emptypb.Empty](
 			httpClient,
-			baseURL+KurtosisPackageIndexerPingProcedure,
+			baseURL+KurtosisPackageIndexerIsAvailableProcedure,
 			opts...,
 		),
 		getPackages: connect.NewClient[emptypb.Empty, generated.GetPackagesResponse](
@@ -75,13 +75,13 @@ func NewKurtosisPackageIndexerClient(httpClient connect.HTTPClient, baseURL stri
 
 // kurtosisPackageIndexerClient implements KurtosisPackageIndexerClient.
 type kurtosisPackageIndexerClient struct {
-	ping        *connect.Client[generated.IndexerPing, generated.IndexerPong]
+	isAvailable *connect.Client[emptypb.Empty, emptypb.Empty]
 	getPackages *connect.Client[emptypb.Empty, generated.GetPackagesResponse]
 }
 
-// Ping calls kurtosis_package_indexer.KurtosisPackageIndexer.Ping.
-func (c *kurtosisPackageIndexerClient) Ping(ctx context.Context, req *connect.Request[generated.IndexerPing]) (*connect.Response[generated.IndexerPong], error) {
-	return c.ping.CallUnary(ctx, req)
+// IsAvailable calls kurtosis_package_indexer.KurtosisPackageIndexer.IsAvailable.
+func (c *kurtosisPackageIndexerClient) IsAvailable(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	return c.isAvailable.CallUnary(ctx, req)
 }
 
 // GetPackages calls kurtosis_package_indexer.KurtosisPackageIndexer.GetPackages.
@@ -92,7 +92,7 @@ func (c *kurtosisPackageIndexerClient) GetPackages(ctx context.Context, req *con
 // KurtosisPackageIndexerHandler is an implementation of the
 // kurtosis_package_indexer.KurtosisPackageIndexer service.
 type KurtosisPackageIndexerHandler interface {
-	Ping(context.Context, *connect.Request[generated.IndexerPing]) (*connect.Response[generated.IndexerPong], error)
+	IsAvailable(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	GetPackages(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[generated.GetPackagesResponse], error)
 }
 
@@ -102,9 +102,9 @@ type KurtosisPackageIndexerHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewKurtosisPackageIndexerHandler(svc KurtosisPackageIndexerHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	kurtosisPackageIndexerPingHandler := connect.NewUnaryHandler(
-		KurtosisPackageIndexerPingProcedure,
-		svc.Ping,
+	kurtosisPackageIndexerIsAvailableHandler := connect.NewUnaryHandler(
+		KurtosisPackageIndexerIsAvailableProcedure,
+		svc.IsAvailable,
 		opts...,
 	)
 	kurtosisPackageIndexerGetPackagesHandler := connect.NewUnaryHandler(
@@ -114,8 +114,8 @@ func NewKurtosisPackageIndexerHandler(svc KurtosisPackageIndexerHandler, opts ..
 	)
 	return "/kurtosis_package_indexer.KurtosisPackageIndexer/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case KurtosisPackageIndexerPingProcedure:
-			kurtosisPackageIndexerPingHandler.ServeHTTP(w, r)
+		case KurtosisPackageIndexerIsAvailableProcedure:
+			kurtosisPackageIndexerIsAvailableHandler.ServeHTTP(w, r)
 		case KurtosisPackageIndexerGetPackagesProcedure:
 			kurtosisPackageIndexerGetPackagesHandler.ServeHTTP(w, r)
 		default:
@@ -127,8 +127,8 @@ func NewKurtosisPackageIndexerHandler(svc KurtosisPackageIndexerHandler, opts ..
 // UnimplementedKurtosisPackageIndexerHandler returns CodeUnimplemented from all methods.
 type UnimplementedKurtosisPackageIndexerHandler struct{}
 
-func (UnimplementedKurtosisPackageIndexerHandler) Ping(context.Context, *connect.Request[generated.IndexerPing]) (*connect.Response[generated.IndexerPong], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kurtosis_package_indexer.KurtosisPackageIndexer.Ping is not implemented"))
+func (UnimplementedKurtosisPackageIndexerHandler) IsAvailable(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kurtosis_package_indexer.KurtosisPackageIndexer.IsAvailable is not implemented"))
 }
 
 func (UnimplementedKurtosisPackageIndexerHandler) GetPackages(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[generated.GetPackagesResponse], error) {

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.4](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.3...0.0.4) (2023-08-29)
+
+
+### Bug Fixes
+
+* Package with a `kurtosis.yml` file with an empty name are not considered invalid ([#15](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/15)) ([6b989f4](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/6b989f4c6832012603ae4686e92f8c1524b840f1))
+
 ## [0.0.3](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.2...0.0.3) (2023-08-29)
 
 

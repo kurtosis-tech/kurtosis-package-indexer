@@ -249,8 +249,8 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, k
 	}
 	kurtosisPackageName, err := ParseKurtosisYaml(kurtosisYamlFileContentResult)
 	if err != nil {
-		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'. This Kurtosis package will not be indexed.",
-			kurtosisYamlFilePath, kurtosisPackageLocator.Repository.GetFullName())
+		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'. This Kurtosis package will not be indexed. "+
+			"Error was:\n%v", kurtosisYamlFilePath, kurtosisPackageLocator.Repository.GetFullName(), err.Error())
 		return nil, false, nil
 	}
 
@@ -264,7 +264,8 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, k
 	}
 	mainDotStarParsedContent, err := ParseStarlarkMainDoStar(starlarkMainDotStartContentResult)
 	if err != nil {
-		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'. This Kurtosis package will not be indexed.", kurtosisMainDotStarFilePath, kurtosisPackageLocator.Repository.GetFullName())
+		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'. This Kurtosis package will not be indexed. "+
+			"Error was:\n%v", kurtosisMainDotStarFilePath, kurtosisPackageLocator.Repository.GetFullName(), err.Error())
 		return nil, false, nil
 	}
 

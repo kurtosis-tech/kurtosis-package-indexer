@@ -17,5 +17,9 @@ func ParseKurtosisYaml(kurtosisYamlContent *github.RepositoryContent) (store.Kur
 	if err = yaml.Unmarshal([]byte(rawFileContent), fileContent); err != nil {
 		return "", stacktrace.Propagate(err, "An error occurred parsing YAML for '%s'", kurtosisYamlFileName)
 	}
+
+	if fileContent.Name == "" {
+		return "", stacktrace.NewError("Kurtosis YAML file had an empty name. This is invalid.")
+	}
 	return store.KurtosisPackageIdentifier(fileContent.Name), nil
 }

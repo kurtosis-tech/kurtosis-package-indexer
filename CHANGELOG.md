@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.3](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.2...0.0.3) (2023-08-29)
+
+
+### Features
+
+* Improve Kurtosis packages search ([#10](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/10)) ([a1818ca](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/a1818ca1cbd990e845ae7bcd79af0a3dc58f83be))
+
 ## [0.0.2](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.1...0.0.2) (2023-08-28)
 
 

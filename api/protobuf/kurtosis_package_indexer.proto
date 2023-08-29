@@ -21,6 +21,8 @@ message KurtosisPackage {
   repeated PackageArg args = 2;
 
   uint64 stars = 3;
+
+  string url = 4;
 }
 
 message PackageArg {

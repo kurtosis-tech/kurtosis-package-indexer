@@ -16,9 +16,26 @@ func TestDecodeKurtosisYaml_Minimal(t *testing.T) {
 	content := &github.RepositoryContent{
 		Content: &contentStr,
 	}
-	parsedPackageName, err := ParseKurtosisYaml(content)
+	parsedPackageName, parsedPackageDescription, err := ParseKurtosisYaml(content)
 	require.NoError(t, err)
 	require.Equal(t, packageName, parsedPackageName)
+	require.Equal(t, "", parsedPackageDescription)
+}
+
+func TestDecodeKurtosisYaml_Full(t *testing.T) {
+	packageName := store.KurtosisPackageIdentifier("github.com/kurtosis-tech/nginx-package")
+	packageDescription := "Cool package"
+	contentStr := fmt.Sprintf(`name: %q
+description: %q
+`, packageName, packageDescription)
+	// nolint: exhaustruct
+	content := &github.RepositoryContent{
+		Content: &contentStr,
+	}
+	parsedPackageName, parsedPackageDescription, err := ParseKurtosisYaml(content)
+	require.NoError(t, err)
+	require.Equal(t, packageName, parsedPackageName)
+	require.Equal(t, packageDescription, parsedPackageDescription)
 }
 
 func TestDecodeKurtosisYaml_UnknownField(t *testing.T) {
@@ -30,9 +47,10 @@ unknownField: hello world
 	content := &github.RepositoryContent{
 		Content: &contentStr,
 	}
-	parsedPackageName, err := ParseKurtosisYaml(content)
+	parsedPackageName, parsedPackageDescription, err := ParseKurtosisYaml(content)
 	require.NoError(t, err)
 	require.Equal(t, packageName, parsedPackageName)
+	require.Equal(t, "", parsedPackageDescription)
 }
 
 func TestDecodeKurtosisYaml_WithComments(t *testing.T) {
@@ -44,7 +62,8 @@ name: %q
 	content := &github.RepositoryContent{
 		Content: &contentStr,
 	}
-	parsedPackageName, err := ParseKurtosisYaml(content)
+	parsedPackageName, parsedPackageDescription, err := ParseKurtosisYaml(content)
 	require.NoError(t, err)
 	require.Equal(t, packageName, parsedPackageName)
+	require.Equal(t, "", parsedPackageDescription)
 }

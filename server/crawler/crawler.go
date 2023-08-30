@@ -29,31 +29,40 @@ const (
 type GithubCrawler struct {
 	store store.KurtosisIndexerStore
 
-	done chan bool
+	ticker *time.Ticker
+	done   chan bool
 }
 
 func NewGithubCrawler(store store.KurtosisIndexerStore) *GithubCrawler {
 	return &GithubCrawler{
 		store: store,
 
-		done: make(chan bool),
+		ticker: nil,
+		done:   make(chan bool),
 	}
 }
 
 func (crawler *GithubCrawler) Schedule(ctx context.Context) error {
+	if crawler.ticker != nil {
+		logrus.Infof("Crawler already scheduled - resetting it. Next run will be started right now and "+
+			"then every %v", crawlFrequency)
+		crawler.ticker.Reset(crawlFrequency)
+	} else {
+		crawler.ticker = time.NewTicker(crawlFrequency)
+	}
+
 	// ticker does not immediately tick, it waits for the duration to elapse before issuing its first tick.
 	// So we call it once manually to populate the store
 	go crawler.doCrawlNoFailure(ctx, time.Now())
 
-	ticker := time.NewTicker(crawlFrequency)
 	go func() {
 		for {
 			select {
 			case <-crawler.done:
 				logrus.Info("Crawler has been closed. Returning")
-				ticker.Stop()
+				crawler.ticker.Stop()
 				return
-			case tickerTime := <-ticker.C:
+			case tickerTime := <-crawler.ticker.C:
 				crawler.doCrawlNoFailure(ctx, tickerTime)
 			}
 		}

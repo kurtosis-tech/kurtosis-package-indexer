@@ -7,6 +7,8 @@ type KurtosisPackageContent struct {
 
 	Description string
 
+	Url string
+
 	PackageArguments []*StarlarkFunctionArgument
 
 	Stars uint64

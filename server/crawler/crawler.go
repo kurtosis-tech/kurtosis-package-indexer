@@ -183,6 +183,7 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 	return api_constructors.NewKurtosisPackage(
 		string(kurtosisPackageContent.Identifier),
 		kurtosisPackageContent.Description,
+		kurtosisPackageContent.Url,
 		kurtosisPackageContent.Stars,
 		kurtosisPackageArgsApi...,
 	)
@@ -264,6 +265,13 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, k
 		return nil, false, nil
 	}
 
+	var kurtosisPackageUrl string
+	if kurtosisYamlFileContentResult.HTMLURL != nil {
+		kurtosisPackageUrl = strings.TrimSuffix(kurtosisYamlFileContentResult.GetHTMLURL(), kurtosisPackageLocator.KurtosisYamlFileName)
+	} else {
+		kurtosisPackageUrl = kurtosisPackageLocator.Repository.GetURL()
+	}
+
 	kurtosisMainDotStarFilePath := fmt.Sprintf("%s%s", kurtosisPackageLocator.RootPath, starlarkMainDotStarFileName)
 	starlarkMainDotStartContentResult, _, resp, err := client.Repositories.GetContents(ctx, repoOwner, repoName, kurtosisMainDotStarFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
@@ -286,6 +294,7 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, k
 	return &KurtosisPackageContent{
 		Identifier:       kurtosisPackageName,
 		Description:      kurtosisPackageDescription,
+		Url:              kurtosisPackageUrl,
 		Stars:            numberOfStars,
 		PackageArguments: mainDotStarParsedContent.Arguments,
 	}, true, nil

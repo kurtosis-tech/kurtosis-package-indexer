@@ -25,6 +25,8 @@ message KurtosisPackage {
   uint64 stars = 3;
 
   string description = 4;
+
+  string url = 5;
 }
 
 message PackageArg {

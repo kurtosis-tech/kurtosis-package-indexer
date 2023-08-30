@@ -173,6 +173,7 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 	}
 	return api_constructors.NewKurtosisPackage(
 		string(kurtosisPackageContent.Identifier),
+		kurtosisPackageContent.Description,
 		kurtosisPackageContent.Url,
 		kurtosisPackageContent.Stars,
 		kurtosisPackageArgsApi...,
@@ -248,7 +249,7 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, k
 	} else if err != nil {
 		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s' - file '%s'", repoName, kurtosisYamlFilePath)
 	}
-	kurtosisPackageName, err := ParseKurtosisYaml(kurtosisYamlFileContentResult)
+	kurtosisPackageName, kurtosisPackageDescription, err := ParseKurtosisYaml(kurtosisYamlFileContentResult)
 	if err != nil {
 		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'. This Kurtosis package will not be indexed. "+
 			"Error was:\n%v", kurtosisYamlFilePath, kurtosisPackageLocator.Repository.GetFullName(), err.Error())
@@ -283,6 +284,7 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, k
 	}
 	return &KurtosisPackageContent{
 		Identifier:       kurtosisPackageName,
+		Description:      kurtosisPackageDescription,
 		Url:              kurtosisPackageUrl,
 		Stars:            numberOfStars,
 		PackageArguments: mainDotStarParsedContent.Arguments,

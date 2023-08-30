@@ -45,14 +45,14 @@ func main() {
 	}
 	defer indexerCrawler.Close()
 
-	if err := runServer(ctx, indexerStore); err != nil {
+	if err := runServer(ctx, indexerStore, indexerCrawler); err != nil {
 		exitFailure(err)
 	}
 	logrus.Exit(successExitCode)
 }
 
-func runServer(ctx context.Context, indexerStore store.KurtosisIndexerStore) error {
-	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer(indexerStore)
+func runServer(ctx context.Context, indexerStore store.KurtosisIndexerStore, indexerCrawler *crawler.GithubCrawler) error {
+	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer(indexerStore, indexerCrawler)
 	connectGoHandler := resource.NewKurtosisPackageIndexerHandlerImpl(kurtosisPackageIndexerResource)
 
 	apiPath, handler := generatedconnect.NewKurtosisPackageIndexerHandler(connectGoHandler)

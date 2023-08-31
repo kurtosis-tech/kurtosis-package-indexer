@@ -9,16 +9,12 @@ import (
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/oauth2"
-	"net/http"
-	"os"
 	"strings"
 	"time"
 )
 
 const (
-	githubUserTokenEnvVarName = "GITHUB_USER_TOKEN"
-	crawlFrequency            = 2 * time.Hour
+	crawlFrequency = 2 * time.Hour
 
 	kurtosisYamlFileName        = "kurtosis.yml"
 	starlarkMainDotStarFileName = "main.star"
@@ -75,28 +71,22 @@ func (crawler *GithubCrawler) Close() error {
 	return nil
 }
 
-func (crawler *GithubCrawler) mustBeAuthenticated(ctx context.Context) (*http.Client, error) {
-	githubTokenMaybe := os.Getenv(githubUserTokenEnvVarName)
-	if githubTokenMaybe != "" {
-		tokenSource := oauth2.StaticTokenSource(
-			// nolint: exhaustruct
-			&oauth2.Token{
-				AccessToken: githubTokenMaybe,
-			},
-		)
-		return oauth2.NewClient(ctx, tokenSource), nil
-	}
-	return nil, stacktrace.NewError("Environment variable '%s' was empty", githubUserTokenEnvVarName)
-}
-
 func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime time.Time) {
-	authenticatedHttpClient, err := crawler.mustBeAuthenticated(ctx)
+	authenticatedHttpClient, err := AuthenticatedHttpClientFromEnvVar(ctx)
 	if err != nil {
-		logrus.Errorf("Unable to build authenticated Github client. This is required so that"+
-			"the indexer can search Github to retrieve Kurtosis package content. Error was:\n%v", err.Error())
-		return
+		logrus.Warnf("Unable to build authenticated Github client from environment variable. It will now try "+
+			"from AWS S3 bucket. Error was:\n%v", err.Error())
+		authenticatedHttpClient, err = AuthenticatedHttpClientFromS3BucketContent(ctx)
+		if err != nil {
+			logrus.Warnf("Unable to build authenticated Github client from S3 bucket. Error was:\n%v", err.Error())
+			logrus.Errorf("Unable to build authenticated Github client. This is required so that"+
+				"the indexer can search Github to retrieve Kurtosis package content. Skipping indexing for now, will "+
+				"retry in %v", crawlFrequency)
+			return
+		}
 	}
-	githubClient := github.NewClient(authenticatedHttpClient)
+
+	githubClient := github.NewClient(authenticatedHttpClient.Client)
 
 	logrus.Info("Crawling Github for Kurtosis packages")
 	repoUpdated, repoRemoved, err := crawler.crawlKurtosisPackages(ctx, githubClient)

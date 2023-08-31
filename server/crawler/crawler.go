@@ -25,20 +25,19 @@ const (
 type GithubCrawler struct {
 	store store.KurtosisIndexerStore
 
+	ctx    context.Context
 	ticker *time.Ticker
-	done   chan bool
 }
 
-func NewGithubCrawler(store store.KurtosisIndexerStore) *GithubCrawler {
+func NewGithubCrawler(ctx context.Context, store store.KurtosisIndexerStore) *GithubCrawler {
 	return &GithubCrawler{
-		store: store,
-
+		store:  store,
+		ctx:    ctx,
 		ticker: nil,
-		done:   make(chan bool),
 	}
 }
 
-func (crawler *GithubCrawler) Schedule(ctx context.Context) error {
+func (crawler *GithubCrawler) Schedule() error {
 	if crawler.ticker != nil {
 		logrus.Infof("Crawler already scheduled - resetting it. Next run will be started right now and "+
 			"then every %v", crawlFrequency)
@@ -49,25 +48,20 @@ func (crawler *GithubCrawler) Schedule(ctx context.Context) error {
 
 	// ticker does not immediately tick, it waits for the duration to elapse before issuing its first tick.
 	// So we call it once manually to populate the store
-	go crawler.doCrawlNoFailure(ctx, time.Now())
+	go crawler.doCrawlNoFailure(crawler.ctx, time.Now())
 
 	go func() {
 		for {
 			select {
-			case <-crawler.done:
+			case <-crawler.ctx.Done():
 				logrus.Info("Crawler has been closed. Returning")
 				crawler.ticker.Stop()
 				return
 			case tickerTime := <-crawler.ticker.C:
-				crawler.doCrawlNoFailure(ctx, tickerTime)
+				crawler.doCrawlNoFailure(crawler.ctx, tickerTime)
 			}
 		}
 	}()
-	return nil
-}
-
-func (crawler *GithubCrawler) Close() error {
-	close(crawler.done)
 	return nil
 }
 

@@ -39,19 +39,20 @@ func main() {
 	indexerStore := store.NewInMemoryStore()
 
 	// Setup the crawler which will populate the store on a periodical basis
-	indexerCrawler := crawler.NewGithubCrawler(indexerStore)
-	if err := indexerCrawler.Schedule(ctx); err != nil {
+	indexerCtx, cancelFunc := context.WithCancel(ctx)
+	indexerCrawler := crawler.NewGithubCrawler(indexerCtx, indexerStore)
+	if err := indexerCrawler.Schedule(); err != nil {
 		exitFailure(err)
 	}
-	defer indexerCrawler.Close()
+	defer cancelFunc()
 
-	if err := runServer(ctx, indexerStore, indexerCrawler); err != nil {
+	if err := runServer(indexerStore, indexerCrawler); err != nil {
 		exitFailure(err)
 	}
 	logrus.Exit(successExitCode)
 }
 
-func runServer(ctx context.Context, indexerStore store.KurtosisIndexerStore, indexerCrawler *crawler.GithubCrawler) error {
+func runServer(indexerStore store.KurtosisIndexerStore, indexerCrawler *crawler.GithubCrawler) error {
 	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer(indexerStore, indexerCrawler)
 	connectGoHandler := resource.NewKurtosisPackageIndexerHandlerImpl(kurtosisPackageIndexerResource)
 

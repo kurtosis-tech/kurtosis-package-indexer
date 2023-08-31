@@ -35,8 +35,8 @@ func (resource *KurtosisPackageIndexer) GetPackages(_ context.Context, _ *emptyp
 	return api_constructors.NewGetPackagesResponse(packages...), nil
 }
 
-func (resource *KurtosisPackageIndexer) Reindex(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	if err := resource.crawler.Schedule(ctx); err != nil {
+func (resource *KurtosisPackageIndexer) Reindex(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	if err := resource.crawler.Schedule(); err != nil {
 		return nil, stacktrace.Propagate(err, "Error updating crawler schedule to kick off a reindex immediately")
 	}
 	return &emptypb.Empty{}, nil

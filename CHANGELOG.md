@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.6](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.5...0.0.6) (2023-08-31)
+
+
+### Features
+
+* Add possibility to retrieve Github Token from the user S3 bucket ([#18](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/18)) ([b1924f4](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/b1924f453f68b7dc056af52fa9c3a48e01c0e7af))
+
 ## [0.0.5](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.4...0.0.5) (2023-08-30)
 
 

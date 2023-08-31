@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.7](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.6...0.0.7) (2023-08-31)
+
+
+### Bug Fixes
+
+* Reindex endpoint was failing b/c the context used was canceled after the endpoint returned ([#24](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/24)) ([f6b1897](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/f6b1897252c9bbd32237a589f56dfcd7578ffb8b))
+
 ## [0.0.6](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.5...0.0.6) (2023-08-31)
 
 

@@ -40,6 +40,9 @@ const (
 	// KurtosisPackageIndexerGetPackagesProcedure is the fully-qualified name of the
 	// KurtosisPackageIndexer's GetPackages RPC.
 	KurtosisPackageIndexerGetPackagesProcedure = "/kurtosis_package_indexer.KurtosisPackageIndexer/GetPackages"
+	// KurtosisPackageIndexerReindexProcedure is the fully-qualified name of the
+	// KurtosisPackageIndexer's Reindex RPC.
+	KurtosisPackageIndexerReindexProcedure = "/kurtosis_package_indexer.KurtosisPackageIndexer/Reindex"
 )
 
 // KurtosisPackageIndexerClient is a client for the kurtosis_package_indexer.KurtosisPackageIndexer
@@ -47,6 +50,7 @@ const (
 type KurtosisPackageIndexerClient interface {
 	IsAvailable(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	GetPackages(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[generated.GetPackagesResponse], error)
+	Reindex(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewKurtosisPackageIndexerClient constructs a client for the
@@ -70,6 +74,11 @@ func NewKurtosisPackageIndexerClient(httpClient connect.HTTPClient, baseURL stri
 			baseURL+KurtosisPackageIndexerGetPackagesProcedure,
 			opts...,
 		),
+		reindex: connect.NewClient[emptypb.Empty, emptypb.Empty](
+			httpClient,
+			baseURL+KurtosisPackageIndexerReindexProcedure,
+			opts...,
+		),
 	}
 }
 
@@ -77,6 +86,7 @@ func NewKurtosisPackageIndexerClient(httpClient connect.HTTPClient, baseURL stri
 type kurtosisPackageIndexerClient struct {
 	isAvailable *connect.Client[emptypb.Empty, emptypb.Empty]
 	getPackages *connect.Client[emptypb.Empty, generated.GetPackagesResponse]
+	reindex     *connect.Client[emptypb.Empty, emptypb.Empty]
 }
 
 // IsAvailable calls kurtosis_package_indexer.KurtosisPackageIndexer.IsAvailable.
@@ -89,11 +99,17 @@ func (c *kurtosisPackageIndexerClient) GetPackages(ctx context.Context, req *con
 	return c.getPackages.CallUnary(ctx, req)
 }
 
+// Reindex calls kurtosis_package_indexer.KurtosisPackageIndexer.Reindex.
+func (c *kurtosisPackageIndexerClient) Reindex(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	return c.reindex.CallUnary(ctx, req)
+}
+
 // KurtosisPackageIndexerHandler is an implementation of the
 // kurtosis_package_indexer.KurtosisPackageIndexer service.
 type KurtosisPackageIndexerHandler interface {
 	IsAvailable(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	GetPackages(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[generated.GetPackagesResponse], error)
+	Reindex(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewKurtosisPackageIndexerHandler builds an HTTP handler from the service implementation. It
@@ -112,12 +128,19 @@ func NewKurtosisPackageIndexerHandler(svc KurtosisPackageIndexerHandler, opts ..
 		svc.GetPackages,
 		opts...,
 	)
+	kurtosisPackageIndexerReindexHandler := connect.NewUnaryHandler(
+		KurtosisPackageIndexerReindexProcedure,
+		svc.Reindex,
+		opts...,
+	)
 	return "/kurtosis_package_indexer.KurtosisPackageIndexer/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case KurtosisPackageIndexerIsAvailableProcedure:
 			kurtosisPackageIndexerIsAvailableHandler.ServeHTTP(w, r)
 		case KurtosisPackageIndexerGetPackagesProcedure:
 			kurtosisPackageIndexerGetPackagesHandler.ServeHTTP(w, r)
+		case KurtosisPackageIndexerReindexProcedure:
+			kurtosisPackageIndexerReindexHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -133,4 +156,8 @@ func (UnimplementedKurtosisPackageIndexerHandler) IsAvailable(context.Context, *
 
 func (UnimplementedKurtosisPackageIndexerHandler) GetPackages(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[generated.GetPackagesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kurtosis_package_indexer.KurtosisPackageIndexer.GetPackages is not implemented"))
+}
+
+func (UnimplementedKurtosisPackageIndexerHandler) Reindex(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kurtosis_package_indexer.KurtosisPackageIndexer.Reindex is not implemented"))
 }

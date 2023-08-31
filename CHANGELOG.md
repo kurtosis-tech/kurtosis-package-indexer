@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.0.5](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.4...0.0.5) (2023-08-30)
+
+
+### Features
+
+* Add endpoint to manually trigger a reindex ([#20](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/20)) ([d6c777a](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/d6c777a573329ee16389fb007ed1880b7e6ec1ec))
+* Add package URL in returned Kurtosis package objects ([#17](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/17)) ([d1f6e6b](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/d1f6e6b294e93b3792bd8a69df4c28df9dc93c14))
+* Parse package description from kurtosis.yml ([#21](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/21)) ([65d6e81](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/65d6e811f4b7f62c34ef8dcf449992638b563bd5))
+
 ## [0.0.4](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.3...0.0.4) (2023-08-29)
 
 

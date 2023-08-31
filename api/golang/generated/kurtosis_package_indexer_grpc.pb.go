@@ -22,6 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	KurtosisPackageIndexer_IsAvailable_FullMethodName = "/kurtosis_package_indexer.KurtosisPackageIndexer/IsAvailable"
 	KurtosisPackageIndexer_GetPackages_FullMethodName = "/kurtosis_package_indexer.KurtosisPackageIndexer/GetPackages"
+	KurtosisPackageIndexer_Reindex_FullMethodName     = "/kurtosis_package_indexer.KurtosisPackageIndexer/Reindex"
 )
 
 // KurtosisPackageIndexerClient is the client API for KurtosisPackageIndexer service.
@@ -30,6 +31,7 @@ const (
 type KurtosisPackageIndexerClient interface {
 	IsAvailable(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetPackages(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetPackagesResponse, error)
+	Reindex(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type kurtosisPackageIndexerClient struct {
@@ -58,12 +60,22 @@ func (c *kurtosisPackageIndexerClient) GetPackages(ctx context.Context, in *empt
 	return out, nil
 }
 
+func (c *kurtosisPackageIndexerClient) Reindex(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, KurtosisPackageIndexer_Reindex_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KurtosisPackageIndexerServer is the server API for KurtosisPackageIndexer service.
 // All implementations should embed UnimplementedKurtosisPackageIndexerServer
 // for forward compatibility
 type KurtosisPackageIndexerServer interface {
 	IsAvailable(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	GetPackages(context.Context, *emptypb.Empty) (*GetPackagesResponse, error)
+	Reindex(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 }
 
 // UnimplementedKurtosisPackageIndexerServer should be embedded to have forward compatible implementations.
@@ -75,6 +87,9 @@ func (UnimplementedKurtosisPackageIndexerServer) IsAvailable(context.Context, *e
 }
 func (UnimplementedKurtosisPackageIndexerServer) GetPackages(context.Context, *emptypb.Empty) (*GetPackagesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPackages not implemented")
+}
+func (UnimplementedKurtosisPackageIndexerServer) Reindex(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Reindex not implemented")
 }
 
 // UnsafeKurtosisPackageIndexerServer may be embedded to opt out of forward compatibility for this service.
@@ -124,6 +139,24 @@ func _KurtosisPackageIndexer_GetPackages_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KurtosisPackageIndexer_Reindex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KurtosisPackageIndexerServer).Reindex(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KurtosisPackageIndexer_Reindex_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KurtosisPackageIndexerServer).Reindex(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KurtosisPackageIndexer_ServiceDesc is the grpc.ServiceDesc for KurtosisPackageIndexer service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -138,6 +171,10 @@ var KurtosisPackageIndexer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPackages",
 			Handler:    _KurtosisPackageIndexer_GetPackages_Handler,
+		},
+		{
+			MethodName: "Reindex",
+			Handler:    _KurtosisPackageIndexer_Reindex_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

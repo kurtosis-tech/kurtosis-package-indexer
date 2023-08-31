@@ -9,6 +9,8 @@ service KurtosisPackageIndexer {
   rpc IsAvailable (google.protobuf.Empty) returns (google.protobuf.Empty) {};
 
   rpc GetPackages(google.protobuf.Empty) returns (GetPackagesResponse) {};
+
+  rpc Reindex(google.protobuf.Empty) returns (google.protobuf.Empty) {};
 }
 
 message GetPackagesResponse {

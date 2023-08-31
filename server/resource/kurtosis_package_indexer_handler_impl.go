@@ -36,3 +36,11 @@ func (handler KurtosisPackageIndexerHandlerImpl) GetPackages(ctx context.Context
 	}
 	return connect.NewResponse(resp), nil
 }
+
+func (handler KurtosisPackageIndexerHandlerImpl) Reindex(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	resp, err := handler.resource.Reindex(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(resp), nil
+}

@@ -33,3 +33,13 @@ To access this file, the indexer will require the following environment variable
 be able to do `GetObject` on this bucket
 - `AWS_BUCKET_FOLDER` (optional) in case the file `github-user-token.txt` is located inside a folder in this S3 bucket
 
+Data persistence
+----------------
+
+The Kurtosis packages information are stored by default in-memory. Everytime the indexer is restarted, it re-runs the
+Github searches to fetch the latest information about the packages on Github
+
+There's also the option of persisting the data to a [bolt](https://github.com/etcd-io/bbolt) key value store, so that 
+services can be restarted keeping the data intact. To use it, the environment variable `BOLT_DATABASE_FILE_PATH` can 
+be set to point to a file on disk that bolt will use to store the data. If the indexer is being run in a container, a 
+persistent volume should be used to fully benefit from this feature.

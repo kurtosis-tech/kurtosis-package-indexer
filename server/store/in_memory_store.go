@@ -1,15 +1,25 @@
 package store
 
-import "github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+import (
+	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+	"time"
+)
 
 type InMemoryStore struct {
+	lastCrawlTime time.Time
+
 	packages map[KurtosisPackageIdentifier]*generated.KurtosisPackage
 }
 
-func NewInMemoryStore() *InMemoryStore {
+func newInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
-		packages: map[KurtosisPackageIdentifier]*generated.KurtosisPackage{},
+		lastCrawlTime: time.Time{},
+		packages:      map[KurtosisPackageIdentifier]*generated.KurtosisPackage{},
 	}
+}
+
+func (store *InMemoryStore) Close() error {
+	return nil
 }
 
 func (store *InMemoryStore) GetKurtosisPackages() ([]*generated.KurtosisPackage, error) {
@@ -28,4 +38,13 @@ func (store *InMemoryStore) UpsertPackage(kurtosisPackage *generated.KurtosisPac
 func (store *InMemoryStore) DeletePackage(packageName KurtosisPackageIdentifier) error {
 	delete(store.packages, packageName)
 	return nil
+}
+
+func (store *InMemoryStore) UpdateLastCrawlDatetime(lastCrawlTime time.Time) error {
+	store.lastCrawlTime = lastCrawlTime
+	return nil
+}
+
+func (store *InMemoryStore) GetLastCrawlDatetime() (time.Time, error) {
+	return store.lastCrawlTime, nil
 }

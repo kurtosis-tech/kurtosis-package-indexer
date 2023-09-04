@@ -26,7 +26,7 @@ type GithubCrawler struct {
 	store store.KurtosisIndexerStore
 
 	ctx    context.Context
-	ticker *time.Ticker
+	ticker *Ticker
 }
 
 func NewGithubCrawler(ctx context.Context, store store.KurtosisIndexerStore) *GithubCrawler {
@@ -37,19 +37,24 @@ func NewGithubCrawler(ctx context.Context, store store.KurtosisIndexerStore) *Gi
 	}
 }
 
-func (crawler *GithubCrawler) Schedule() error {
+func (crawler *GithubCrawler) Schedule(forceRunNow bool) error {
 	if crawler.ticker != nil {
-		logrus.Infof("Crawler already scheduled - resetting it. Next run will be started right now and "+
-			"then every %v", crawlFrequency)
-		crawler.ticker.Reset(crawlFrequency)
-	} else {
-		crawler.ticker = time.NewTicker(crawlFrequency)
+		logrus.Infof("Crawler already scheduled - stopping it first")
+		crawler.ticker.Stop()
 	}
 
-	// ticker does not immediately tick, it waits for the duration to elapse before issuing its first tick.
-	// So we call it once manually to populate the store
-	go crawler.doCrawlNoFailure(crawler.ctx, time.Now())
+	lastCrawlDatetime, err := crawler.store.GetLastCrawlDatetime()
+	if err != nil {
+		return stacktrace.Propagate(err, "An unexpected error occurred retrieving last crawl datetime from the store")
+	}
 
+	var initialDelay time.Duration
+	if !forceRunNow && lastCrawlDatetime.Add(crawlFrequency).After(time.Now()) {
+		initialDelay = time.Until(lastCrawlDatetime.Add(crawlFrequency))
+	}
+	logrus.Infof("Crawler starting with an initial delay of '%v' and a period of '%v'", initialDelay, crawlFrequency)
+
+	crawler.ticker = NewTicker(initialDelay, crawlFrequency)
 	go func() {
 		for {
 			select {
@@ -87,6 +92,12 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 	if err != nil {
 		logrus.Errorf("An error occurred crawling Github for Kurtosis packages. Will try again in '%v'. "+
 			"Error was:\n%v", crawlFrequency, err.Error())
+	} else {
+		if err := crawler.store.UpdateLastCrawlDatetime(time.Now()); err != nil {
+			logrus.Errorf("An error occurred persisting crawl time to database. In case of a service restart, "+
+				"crawling might happen earlier than '%v' (which is the theorical time of the next crawling). "+
+				"Error was:\n%v", time.Now().Add(crawlFrequency), err.Error())
+		}
 	}
 	logrus.Infof("Crawling finished in %v. Repository updated: %d - removed: %d",
 		time.Since(tickerTime), repoUpdated, repoRemoved)

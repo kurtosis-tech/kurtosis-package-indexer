@@ -27,6 +27,10 @@ message KurtosisPackage {
   string description = 4;
 
   string url = 5;
+
+  optional string entrypoint_description = 6; // optional for backcompat
+
+  optional string returns_description = 7; // optional for backcompat
 }
 
 message PackageArg {
@@ -34,12 +38,26 @@ message PackageArg {
 
   bool is_required = 2;
 
-  optional PackageArgType type = 3;
+  optional ArgumentValueType type = 3; // deprecated in favour of PackageArgumentType
+
+  optional string description = 4; // optional for backcompat
+
+  optional PackageArgumentType typeV2 = 5;  // optional for backcompat. It fully replaces PackageArgType
 }
 
-enum PackageArgType {
+enum ArgumentValueType {
   BOOL = 0;
   STRING = 1;
   INTEGER = 2;
   FLOAT = 3;
+  DICT = 4;
+  JSON = 5;
+}
+
+message PackageArgumentType {
+  ArgumentValueType top_level_type = 1;
+
+  optional ArgumentValueType inner_type_1 = 2;
+
+  optional ArgumentValueType inner_type_2 = 3;
 }

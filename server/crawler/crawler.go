@@ -149,19 +149,29 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 	var kurtosisPackageArgsApi []*generated.PackageArg
 	for _, arg := range kurtosisPackageContent.PackageArguments {
 		var convertedPackageArg *generated.PackageArg
-		convertedPackageArgType, ok := generated.PackageArgType_value[strings.ToUpper(arg.Type)]
-		if ok {
-			convertedPackageArg = api_constructors.NewPackageArg(
-				arg.Name,
-				arg.IsRequired,
-				generated.PackageArgType(convertedPackageArgType))
-		} else {
-			if arg.Type != "" {
-				logrus.Warnf("Argument type '%s' for argument '%s' in package '%s' is no known and will be dropped",
+		convertedPackageArgTypeV2Ptr, ok := convertArgumentType(arg.Type)
+		if !ok {
+			if arg.Type != nil {
+				logrus.Warnf("Argument type '%s' for argument '%s' in package '%s' could not be parsed to the new format",
 					arg.Type, arg.Name, kurtosisPackageContent.Identifier)
 			}
-			convertedPackageArg = api_constructors.NewUntypedPackageArg(arg.Name, arg.IsRequired)
 		}
+
+		var convertedPackageArgTypeV1Ptr *generated.ArgumentValueType
+		if arg.Type != nil {
+			convertedPackageArgTypeV1Raw, ok := generated.ArgumentValueType_value[strings.ToUpper(arg.Type.Type.String())]
+			if !ok {
+				if arg.Type != nil {
+					logrus.Warnf("Argument type '%s' for argument '%s' in package '%s' is no known and will be dropped",
+						arg.Type, arg.Name, kurtosisPackageContent.Identifier)
+				}
+			} else {
+				convertedPackageArgTypeV1 := generated.ArgumentValueType(convertedPackageArgTypeV1Raw)
+				convertedPackageArgTypeV1Ptr = &convertedPackageArgTypeV1
+			}
+		}
+		convertedPackageArg = api_constructors.NewPackageArg(
+			arg.Name, arg.Description, arg.IsRequired, convertedPackageArgTypeV1Ptr, convertedPackageArgTypeV2Ptr)
 		kurtosisPackageArgsApi = append(kurtosisPackageArgsApi, convertedPackageArg)
 	}
 	return api_constructors.NewKurtosisPackage(
@@ -169,8 +179,38 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.Description,
 		kurtosisPackageContent.Url,
 		kurtosisPackageContent.Stars,
+		kurtosisPackageContent.EntrypointDescription,
+		kurtosisPackageContent.ReturnsDescription,
 		kurtosisPackageArgsApi...,
 	)
+}
+
+func convertArgumentType(argumentType *StarlarkArgumentType) (*generated.PackageArgumentType, bool) {
+	if argumentType == nil {
+		return nil, true
+	}
+	mainType, ok := generated.ArgumentValueType_value[strings.ToUpper(argumentType.Type.String())]
+	if !ok {
+		return nil, false
+	}
+	packageArgumentType := &generated.PackageArgumentType{
+		TopLevelType: generated.ArgumentValueType(mainType),
+		InnerType_1:  nil,
+		InnerType_2:  nil,
+	}
+	if argumentType.InnerType1 != nil {
+		if innerType1, ok := generated.ArgumentValueType_value[strings.ToUpper(argumentType.InnerType1.String())]; ok {
+			argumentValueType := generated.ArgumentValueType(innerType1)
+			packageArgumentType.InnerType_1 = &argumentValueType
+		}
+	}
+	if argumentType.InnerType2 != nil {
+		if innerType2, ok := generated.ArgumentValueType_value[strings.ToUpper(argumentType.InnerType2.String())]; ok {
+			argumentValueType := generated.ArgumentValueType(innerType2)
+			packageArgumentType.InnerType_2 = &argumentValueType
+		}
+	}
+	return packageArgumentType, true
 }
 
 func getKurtosisPackageLocators(ctx context.Context, client *github.Client) ([]*KurtosisPackageLocator, error) {
@@ -276,10 +316,12 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, k
 		numberOfStars = uint64(*kurtosisPackageLocator.Repository.StargazersCount)
 	}
 	return &KurtosisPackageContent{
-		Identifier:       kurtosisPackageName,
-		Description:      kurtosisPackageDescription,
-		Url:              kurtosisPackageUrl,
-		Stars:            numberOfStars,
-		PackageArguments: mainDotStarParsedContent.Arguments,
+		Identifier:            kurtosisPackageName,
+		Description:           kurtosisPackageDescription,
+		Url:                   kurtosisPackageUrl,
+		EntrypointDescription: mainDotStarParsedContent.Description,
+		ReturnsDescription:    mainDotStarParsedContent.ReturnDescription,
+		Stars:                 numberOfStars,
+		PackageArguments:      mainDotStarParsedContent.Arguments,
 	}, true, nil
 }

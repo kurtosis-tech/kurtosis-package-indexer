@@ -7,14 +7,17 @@ import (
 )
 
 var (
+	stringValueType = StarlarkValueType_String
+	intValueType    = StarlarkValueType_Int
+
 	stringType = StarlarkArgumentType{
-		Type:       StarlarkValueType_String,
+		Type:       stringValueType,
 		InnerType1: nil,
 		InnerType2: nil,
 	}
 
 	intType = StarlarkArgumentType{
-		Type:       StarlarkValueType_Int,
+		Type:       intValueType,
 		InnerType1: nil,
 		InnerType2: nil,
 	}
@@ -31,11 +34,16 @@ var (
 		InnerType2: nil,
 	}
 
-	stringValueType      = StarlarkValueType_String
 	dictStringStringType = StarlarkArgumentType{
 		Type:       StarlarkValueType_Dict,
 		InnerType1: &stringValueType,
 		InnerType2: &stringValueType,
+	}
+
+	listIntType = StarlarkArgumentType{
+		Type:       StarlarkValueType_List,
+		InnerType1: &intValueType,
+		InnerType2: nil,
 	}
 )
 
@@ -99,6 +107,7 @@ def run(
         second_arg,        # type:int   
         third_arg=True,    # type: bool
 		fourth_arg={},
+		fifth_arg=[],
 		untyped_arg={},
 	):
 	"""This is the run function
@@ -108,6 +117,7 @@ def run(
 		second_arg (int):
 		third_arg (bool): yup, bool works too!
 		fourth_arg (dict[string, string]): this is a dict
+		fifth_arg (list[int]): this is a list of integers 
 		untyped_arg: no type info here, will default to JSON
 	Returns: 
 		Returns nothing for now
@@ -122,7 +132,7 @@ def run(
 	result, err := ParseStarlarkMainDoStar(content)
 	require.NoError(t, err)
 
-	require.Len(t, result.Arguments, 6)
+	require.Len(t, result.Arguments, 7)
 
 	require.Equal(t, "plan", result.Arguments[0].Name)
 	require.True(t, result.Arguments[0].IsRequired)
@@ -149,10 +159,15 @@ def run(
 	require.Equal(t, "this is a dict", result.Arguments[4].Description)
 	require.Equal(t, &dictStringStringType, result.Arguments[4].Type)
 
-	require.Equal(t, "untyped_arg", result.Arguments[5].Name)
+	require.Equal(t, "fifth_arg", result.Arguments[5].Name)
 	require.False(t, result.Arguments[5].IsRequired)
-	require.Equal(t, "no type info here, will default to JSON", result.Arguments[5].Description)
-	require.Equal(t, &jsonType, result.Arguments[5].Type)
+	require.Equal(t, "this is a list of integers", result.Arguments[5].Description)
+	require.Equal(t, &listIntType, result.Arguments[5].Type)
+
+	require.Equal(t, "untyped_arg", result.Arguments[6].Name)
+	require.False(t, result.Arguments[6].IsRequired)
+	require.Equal(t, "no type info here, will default to JSON", result.Arguments[6].Description)
+	require.Equal(t, &jsonType, result.Arguments[6].Type)
 }
 
 func TestParseStarlarkMainDoStar_WithImports(t *testing.T) {

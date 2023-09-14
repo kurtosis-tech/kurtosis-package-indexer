@@ -6,7 +6,7 @@ This Kurtosis package spins up a Kurtosis Package Indexer inside a Kurtosis encl
 Running the package
 -------------------
 
-Kurtosis Package Indexer required a valid Github token to search Kurtosis packages on Github.
+Kurtosis Package Indexer requires a valid Github token to search Kurtosis packages on Github.
 The token can be passed either as a direct environment variable, or the indexer can also fetch
 it from the content of a file inside an S3 bukcet. See the indexer [README](../README.md) for more info 
 
@@ -27,7 +27,10 @@ The following arguments that can be passed to the package:
     "aws_secret_access_key": "",    // optional
     "aws_bucket_region": "",        // optional
     "aws_bucket_name": "",          // optional
-    "aws_bucket_user_folder": ""    // optional
+    "aws_bucket_user_folder": "",   // optional
+
+    // Optionally, a custom version of the indexer image can be used. Useful to run a dev version, like on CI
+    "kurtosis_package_indexer_custom_version": ""   // optional
 }
 ```
 

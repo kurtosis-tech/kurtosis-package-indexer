@@ -1,5 +1,7 @@
 KURTOSIS_PACKAGE_INDEXER_IMAGE = "kurtosistech/kurtosis-package-indexer"
-KURTOSIS_PACKAGE_INDEXER_DEFAULT_VERSION = "0.0.6"
+KURTOSIS_PACKAGE_INDEXER_DEFAULT_VERSION = "0.0.7"
+
+KURTOSIS_PACKAGE_INDEXER_PORT_ID = "http"
 KURTOSIS_PACKAGE_INDEXER_PORT_NUM = 9770
 
 AWS_S3_BUCKET_SUBFOLDER = "kurtosis-package-indexer"
@@ -7,14 +9,35 @@ AWS_S3_BUCKET_SUBFOLDER = "kurtosis-package-indexer"
 
 def run(
     plan,
-    github_user_token="",                        # type: string
-    aws_access_key_id="",                        # type: string
-    aws_secret_access_key="",                    # type: string
-    aws_bucket_region="",                        # type: string
-    aws_bucket_name="",                          # type: string
-    aws_bucket_user_folder="",                   # type: string
-    kurtosis_package_indexer_custom_version="",  # type: string
+    github_user_token="",
+    aws_access_key_id="",
+    aws_secret_access_key="",
+    aws_bucket_region="",
+    aws_bucket_name="",
+    aws_bucket_user_folder="",
+    kurtosis_package_indexer_custom_version="",
 ):
+    """Runs a Kurtosis package indexer service, listening on port 9770
+
+    Args:
+        github_user_token: The Github user token to use to authenticate to Github
+        aws_access_key_id: The AWS access key ID to authenticate to AWS
+        aws_secret_access_key: The AWS secret key to authenticate to AWS
+        aws_bucket_region: The region of the AWS bucket to read from
+        aws_bucket_name: The name of the bucket to read from
+        aws_bucket_user_folder: The folder inside the AWS bucket
+        kurtosis_package_indexer_custom_version: A custom version for the container image
+    Returns:
+        The service object containing useful information on the running service. Typically:
+        ```
+        {
+            "hostname": "kurtosis-package-indexer",
+            "ip_address": "172.16.0.4",
+            "name": "kurtosis-package-indexer",
+            "port_number": 9770
+        }
+        ```
+    """
     indexer_env_vars = {}
     if len(github_user_token) > 0:
         indexer_env_vars["GITHUB_USER_TOKEN"] = github_user_token
@@ -30,17 +53,17 @@ def run(
         KURTOSIS_PACKAGE_INDEXER_IMAGE,
         kurtosis_package_indexer_custom_version if kurtosis_package_indexer_custom_version != "" else KURTOSIS_PACKAGE_INDEXER_DEFAULT_VERSION
     )
-    plan.add_service(
+    indexer_service = plan.add_service(
         name="kurtosis-package-indexer",
         config=ServiceConfig(
             image=image_name_and_version,
             ports={
-                "http": PortSpec(KURTOSIS_PACKAGE_INDEXER_PORT_NUM),
+                KURTOSIS_PACKAGE_INDEXER_PORT_ID: PortSpec(KURTOSIS_PACKAGE_INDEXER_PORT_NUM),
             },
             env_vars=indexer_env_vars,
             ready_conditions=ReadyCondition(
                 recipe=PostHttpRequestRecipe(
-                    port_id="http",
+                    port_id=KURTOSIS_PACKAGE_INDEXER_PORT_ID,
                     endpoint="/kurtosis_package_indexer.KurtosisPackageIndexer/IsAvailable",
                     content_type="application/json",
                     body="{}"
@@ -51,6 +74,13 @@ def run(
             )
         )
     )
+    return struct(
+        hostname=indexer_service.hostname,
+        ip_address=indexer_service.ip_address,
+        name=indexer_service.name,
+        port_number=indexer_service.ports[KURTOSIS_PACKAGE_INDEXER_PORT_ID].number
+    )
+
 
 
 def get_aws_env(aws_access_key_id, aws_secret_access_key, aws_bucket_region, aws_bucket_name, aws_bucket_user_folder):

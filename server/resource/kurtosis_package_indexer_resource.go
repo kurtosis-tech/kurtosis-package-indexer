@@ -27,8 +27,8 @@ func (resource *KurtosisPackageIndexer) IsAvailable(_ context.Context, _ *emptyp
 	return &emptypb.Empty{}, nil
 }
 
-func (resource *KurtosisPackageIndexer) GetPackages(_ context.Context, _ *emptypb.Empty) (*generated.GetPackagesResponse, error) {
-	packages, err := resource.store.GetKurtosisPackages()
+func (resource *KurtosisPackageIndexer) GetPackages(ctx context.Context, _ *emptypb.Empty) (*generated.GetPackagesResponse, error) {
+	packages, err := resource.store.GetKurtosisPackages(ctx)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "An error occurred fetching the packages from the store")
 	}

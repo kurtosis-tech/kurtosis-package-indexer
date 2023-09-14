@@ -1,10 +1,10 @@
 package store
 
 import (
+	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"github.com/kurtosis-tech/stacktrace"
 	"go.etcd.io/bbolt"
-	"google.golang.org/protobuf/proto"
 	"time"
 )
 
@@ -39,7 +39,7 @@ func (store *BboltStore) Close() error {
 	return nil
 }
 
-func (store *BboltStore) GetKurtosisPackages() ([]*generated.KurtosisPackage, error) {
+func (store *BboltStore) GetKurtosisPackages(_ context.Context) ([]*generated.KurtosisPackage, error) {
 	var packages []*generated.KurtosisPackage
 	err := store.db.View(func(tx *bbolt.Tx) error {
 		bucketInstance := tx.Bucket([]byte(kurtosisPackagesBucketName))
@@ -47,7 +47,11 @@ func (store *BboltStore) GetKurtosisPackages() ([]*generated.KurtosisPackage, er
 			return nil
 		}
 		bucketCursor := bucketInstance.Cursor()
-		for packageName, serializedPackageInfo := bucketCursor.First(); packageName != nil; packageName, serializedPackageInfo = bucketCursor.Next() {
+		for packageNameKey, serializedPackageInfo := bucketCursor.First(); packageNameKey != nil; packageNameKey, serializedPackageInfo = bucketCursor.Next() {
+			packageName, err := packageNameFromKey(packageNameKey)
+			if err != nil {
+				return stacktrace.Propagate(err, "Unable to compute package name from the key: '%s'", string(packageNameKey))
+			}
 			packageInfo, err := deserializePackageInfo(packageName, serializedPackageInfo)
 			if err != nil {
 				// TODO: maybe try the other packages before exiting, who knows...
@@ -63,7 +67,7 @@ func (store *BboltStore) GetKurtosisPackages() ([]*generated.KurtosisPackage, er
 	return packages, nil
 }
 
-func (store *BboltStore) UpsertPackage(kurtosisPackage *generated.KurtosisPackage) error {
+func (store *BboltStore) UpsertPackage(_ context.Context, kurtosisPackage *generated.KurtosisPackage) error {
 	err := store.db.Update(func(tx *bbolt.Tx) error {
 		kurtosisPackageName := kurtosisPackage.GetName()
 		serializedPackageInfo, err := serializePackageInfo(kurtosisPackage.GetName(), kurtosisPackage)
@@ -74,7 +78,8 @@ func (store *BboltStore) UpsertPackage(kurtosisPackage *generated.KurtosisPackag
 		if err != nil {
 			return stacktrace.Propagate(err, "Unable to create or get bucket from Bbolt database")
 		}
-		if err := bucketInstance.Put([]byte(kurtosisPackageName), serializedPackageInfo); err != nil {
+		packageNameKey := compositePackageKey(kurtosisPackageName)
+		if err := bucketInstance.Put(packageNameKey, serializedPackageInfo); err != nil {
 			return stacktrace.Propagate(err, "An error occurred persisting serialized package info to Bbolt database for package '%s'", kurtosisPackageName)
 		}
 		return nil
@@ -85,14 +90,15 @@ func (store *BboltStore) UpsertPackage(kurtosisPackage *generated.KurtosisPackag
 	return nil
 }
 
-func (store *BboltStore) DeletePackage(packageName KurtosisPackageIdentifier) error {
+func (store *BboltStore) DeletePackage(_ context.Context, packageName KurtosisPackageIdentifier) error {
 	err := store.db.Update(func(tx *bbolt.Tx) error {
 		bucketInstance := tx.Bucket([]byte(kurtosisPackagesBucketName))
 		if bucketInstance == nil {
 			// no bucket means not data, nothing to delete
 			return nil
 		}
-		if err := bucketInstance.Delete([]byte(packageName)); err != nil {
+		packageNameKey := compositePackageKey(string(packageName))
+		if err := bucketInstance.Delete(packageNameKey); err != nil {
 			return stacktrace.Propagate(err, "An error occurred deleting package info from Bbolt database for package '%s'", packageName)
 		}
 		return nil
@@ -103,7 +109,7 @@ func (store *BboltStore) DeletePackage(packageName KurtosisPackageIdentifier) er
 	return nil
 }
 
-func (store *BboltStore) UpdateLastCrawlDatetime(lastCrawlDatetime time.Time) error {
+func (store *BboltStore) UpdateLastCrawlDatetime(_ context.Context, lastCrawlDatetime time.Time) error {
 	err := store.db.Update(func(tx *bbolt.Tx) error {
 		serializedDatetime, err := lastCrawlDatetime.MarshalBinary()
 		if err != nil {
@@ -114,7 +120,8 @@ func (store *BboltStore) UpdateLastCrawlDatetime(lastCrawlDatetime time.Time) er
 		if err != nil {
 			return stacktrace.Propagate(err, "Unable to create or get bucket from Bbolt database")
 		}
-		if err := bucketInstance.Put([]byte(lastCrawlDatetimeKey), serializedDatetime); err != nil {
+		lastCrawlDatetimeKeyBytes := compositeMetadataKey(lastCrawlDatetimeKey)
+		if err := bucketInstance.Put(lastCrawlDatetimeKeyBytes, serializedDatetime); err != nil {
 			return stacktrace.Propagate(err, "An error occurred persisting serialized time info to Bbolt database")
 		}
 		return nil
@@ -125,7 +132,7 @@ func (store *BboltStore) UpdateLastCrawlDatetime(lastCrawlDatetime time.Time) er
 	return nil
 }
 
-func (store *BboltStore) GetLastCrawlDatetime() (time.Time, error) {
+func (store *BboltStore) GetLastCrawlDatetime(_ context.Context) (time.Time, error) {
 	lastCrawlDatetime := time.Time{}
 	err := store.db.View(func(tx *bbolt.Tx) error {
 		bucketInstance := tx.Bucket([]byte(lastCrawlMetadataBucketName))
@@ -133,7 +140,8 @@ func (store *BboltStore) GetLastCrawlDatetime() (time.Time, error) {
 			// no bucket means not data
 			return nil
 		}
-		serializedDatetime := bucketInstance.Get([]byte(lastCrawlDatetimeKey))
+		lastCrawlDatetimeKeyBytes := compositeMetadataKey(lastCrawlDatetimeKey)
+		serializedDatetime := bucketInstance.Get(lastCrawlDatetimeKeyBytes)
 		if serializedDatetime == nil {
 			// no data stored yet
 			return nil
@@ -148,20 +156,4 @@ func (store *BboltStore) GetLastCrawlDatetime() (time.Time, error) {
 		return lastCrawlDatetime, stacktrace.Propagate(err, "An error occurred retrieving the last crawl datetime from Bbolt database")
 	}
 	return lastCrawlDatetime, nil
-}
-
-func serializePackageInfo(packageName string, packageInfo *generated.KurtosisPackage) ([]byte, error) {
-	serializedPackageInfo, err := proto.Marshal(packageInfo)
-	if err != nil {
-		return nil, stacktrace.Propagate(err, "An error occurred serializing Kurtosis package info for package '%s'", packageName)
-	}
-	return serializedPackageInfo, nil
-}
-
-func deserializePackageInfo(packageName []byte, serializedPackageInfo []byte) (*generated.KurtosisPackage, error) {
-	kurtosisPackageInfo := new(generated.KurtosisPackage)
-	if err := proto.Unmarshal(serializedPackageInfo, kurtosisPackageInfo); err != nil {
-		return nil, stacktrace.Propagate(err, "An error occurred deserializing Kurtosis package info for package '%s'", string(packageName))
-	}
-	return kurtosisPackageInfo, nil
 }

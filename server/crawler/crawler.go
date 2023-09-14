@@ -43,7 +43,7 @@ func (crawler *GithubCrawler) Schedule(forceRunNow bool) error {
 		crawler.ticker.Stop()
 	}
 
-	lastCrawlDatetime, err := crawler.store.GetLastCrawlDatetime()
+	lastCrawlDatetime, err := crawler.store.GetLastCrawlDatetime(crawler.ctx)
 	if err != nil {
 		return stacktrace.Propagate(err, "An unexpected error occurred retrieving last crawl datetime from the store")
 	}
@@ -93,7 +93,7 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 		logrus.Errorf("An error occurred crawling Github for Kurtosis packages. Will try again in '%v'. "+
 			"Error was:\n%v", crawlFrequency, err.Error())
 	} else {
-		if err := crawler.store.UpdateLastCrawlDatetime(time.Now()); err != nil {
+		if err := crawler.store.UpdateLastCrawlDatetime(crawler.ctx, time.Now()); err != nil {
 			logrus.Errorf("An error occurred persisting crawl time to database. In case of a service restart, "+
 				"crawling might happen earlier than '%v' (which is the theorical time of the next crawling). "+
 				"Error was:\n%v", time.Now().Add(crawlFrequency), err.Error())
@@ -127,7 +127,7 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubC
 		}
 
 		kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)
-		if err = crawler.store.UpsertPackage(kurtosisPackageApi); err != nil {
+		if err = crawler.store.UpsertPackage(crawler.ctx, kurtosisPackageApi); err != nil {
 			logrus.Errorf("An error occurred updating the package '%s' in the indexer store. Stored package data"+
 				"might be out of date until next refresh.", kurtosisPackageContent.Identifier)
 		}
@@ -138,7 +138,7 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubC
 	}
 
 	// remove all packages from the store which don't exist anymore
-	storedPackages, err := crawler.store.GetKurtosisPackages()
+	storedPackages, err := crawler.store.GetKurtosisPackages(crawler.ctx)
 	if err != nil {
 		return repoUpdated, repoRemoved, stacktrace.Propagate(err, "Unable to retrieve all Kurtosis packages currently stored by the indexer")
 	}
@@ -147,7 +147,7 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubC
 		if _, found := existingPackages[packageIdentifier]; !found {
 			repoRemoved += 1
 			logrus.Infof("Removing package '%s' from the store as it doesn't seem to exist anymore", packageIdentifier)
-			if err = crawler.store.DeletePackage(packageIdentifier); err != nil {
+			if err = crawler.store.DeletePackage(crawler.ctx, packageIdentifier); err != nil {
 				logrus.Errorf("Unable to remove package '%s' from the store. This package data will be outdated", packageIdentifier)
 				continue
 			}

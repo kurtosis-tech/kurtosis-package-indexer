@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/sirupsen/logrus"
@@ -15,15 +16,15 @@ const (
 type KurtosisIndexerStore interface {
 	Close() error
 
-	GetKurtosisPackages() ([]*generated.KurtosisPackage, error)
+	GetKurtosisPackages(ctx context.Context) ([]*generated.KurtosisPackage, error)
 
-	UpsertPackage(kurtosisPackage *generated.KurtosisPackage) error
+	UpsertPackage(ctx context.Context, kurtosisPackage *generated.KurtosisPackage) error
 
-	DeletePackage(packageName KurtosisPackageIdentifier) error
+	DeletePackage(ctx context.Context, packageName KurtosisPackageIdentifier) error
 
-	UpdateLastCrawlDatetime(lastCrawlTime time.Time) error
+	UpdateLastCrawlDatetime(ctx context.Context, lastCrawlTime time.Time) error
 
-	GetLastCrawlDatetime() (time.Time, error)
+	GetLastCrawlDatetime(ctx context.Context) (time.Time, error)
 }
 
 func InstantiateStoreFromEnvVar() (KurtosisIndexerStore, error) {

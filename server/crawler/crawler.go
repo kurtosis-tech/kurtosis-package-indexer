@@ -159,6 +159,7 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 
 		var convertedPackageArgTypeV1Ptr *generated.ArgumentValueType
 		if arg.Type != nil {
+			// if arg.Type is not nil then arg.Type.Type cannot be nil as it is a required field
 			convertedPackageArgTypeV1Raw, ok := generated.ArgumentValueType_value[strings.ToUpper(arg.Type.Type.String())]
 			if !ok {
 				if arg.Type != nil {

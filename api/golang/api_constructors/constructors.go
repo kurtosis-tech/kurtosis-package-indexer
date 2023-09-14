@@ -1,36 +1,43 @@
 package api_constructors
 
-import "github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+import (
+	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+)
 
 func NewGetPackagesResponse(packages ...*generated.KurtosisPackage) *generated.GetPackagesResponse {
 	return &generated.GetPackagesResponse{Packages: packages}
 }
 
-func NewKurtosisPackage(name string, description string, url string, stars uint64, args ...*generated.PackageArg) *generated.KurtosisPackage {
+func NewKurtosisPackage(name string, description string, url string, stars uint64, entrypointDescription string, returnsDescription string, args ...*generated.PackageArg) *generated.KurtosisPackage {
+	var optionalEntrypointDescription *string
+	if entrypointDescription != "" {
+		optionalEntrypointDescription = &entrypointDescription
+	}
+	var optionalReturnsDescription *string
+	if returnsDescription != "" {
+		optionalReturnsDescription = &returnsDescription
+	}
 	return &generated.KurtosisPackage{
+		Name:                  name,
+		Description:           description,
+		Url:                   url,
+		Args:                  args,
+		Stars:                 stars,
+		EntrypointDescription: optionalEntrypointDescription,
+		ReturnsDescription:    optionalReturnsDescription,
+	}
+}
+
+func NewPackageArg(name string, description string, isRequired bool, argType *generated.ArgumentValueType, argTypeV2 *generated.PackageArgumentType) *generated.PackageArg {
+	var optionalDescription *string
+	if description != "" {
+		optionalDescription = &description
+	}
+	return &generated.PackageArg{
 		Name:        name,
-		Description: description,
-		Url:         url,
-		Args:        args,
-		Stars:       stars,
-	}
-}
-
-// NewUntypedPackageArg creates an argument with no type.
-// Right now, supported types are only STRING, INT, FLOAT and BOOL, so this should be used for more evolved arguments
-// like dictionaries or lists. Support for those can be added later if needed
-func NewUntypedPackageArg(name string, isRequired bool) *generated.PackageArg {
-	return &generated.PackageArg{
-		Name:       name,
-		IsRequired: isRequired,
-		Type:       nil,
-	}
-}
-
-func NewPackageArg(name string, isRequired bool, argType generated.PackageArgType) *generated.PackageArg {
-	return &generated.PackageArg{
-		Name:       name,
-		IsRequired: isRequired,
-		Type:       &argType,
+		Description: optionalDescription,
+		IsRequired:  isRequired,
+		Type:        argType,
+		TypeV2:      argTypeV2,
 	}
 }

@@ -9,6 +9,10 @@ type KurtosisPackageContent struct {
 
 	Url string
 
+	EntrypointDescription string
+
+	ReturnsDescription string
+
 	PackageArguments []*StarlarkFunctionArgument
 
 	Stars uint64

@@ -52,6 +52,7 @@ enum ArgumentValueType {
   FLOAT = 3;
   DICT = 4;
   JSON = 5;
+  LIST = 6;
 }
 
 message PackageArgumentType {

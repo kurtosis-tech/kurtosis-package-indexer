@@ -160,16 +160,8 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		var convertedPackageArgTypeV1Ptr *generated.ArgumentValueType
 		if arg.Type != nil {
 			// if arg.Type is not nil then arg.Type.Type cannot be nil as it is a required field
-			convertedPackageArgTypeV1Raw, ok := generated.ArgumentValueType_value[strings.ToUpper(arg.Type.Type.String())]
-			if !ok {
-				if arg.Type != nil {
-					logrus.Warnf("Argument type '%s' for argument '%s' in package '%s' is no known and will be dropped",
-						arg.Type, arg.Name, kurtosisPackageContent.Identifier)
-				}
-			} else {
-				convertedPackageArgTypeV1 := generated.ArgumentValueType(convertedPackageArgTypeV1Raw)
-				convertedPackageArgTypeV1Ptr = &convertedPackageArgTypeV1
-			}
+			convertedPackageArgTypeV1Raw := arg.Type.Type.toApiType()
+			convertedPackageArgTypeV1Ptr = &convertedPackageArgTypeV1Raw
 		}
 		convertedPackageArg = api_constructors.NewPackageArg(
 			arg.Name, arg.Description, arg.IsRequired, convertedPackageArgTypeV1Ptr, convertedPackageArgTypeV2Ptr)
@@ -190,26 +182,19 @@ func convertArgumentType(argumentType *StarlarkArgumentType) (*generated.Package
 	if argumentType == nil {
 		return nil, true
 	}
-	mainType, ok := generated.ArgumentValueType_value[strings.ToUpper(argumentType.Type.String())]
-	if !ok {
-		return nil, false
-	}
+	mainType := argumentType.Type.toApiType()
 	packageArgumentType := &generated.PackageArgumentType{
-		TopLevelType: generated.ArgumentValueType(mainType),
+		TopLevelType: mainType,
 		InnerType_1:  nil,
 		InnerType_2:  nil,
 	}
 	if argumentType.InnerType1 != nil {
-		if innerType1, ok := generated.ArgumentValueType_value[strings.ToUpper(argumentType.InnerType1.String())]; ok {
-			argumentValueType := generated.ArgumentValueType(innerType1)
-			packageArgumentType.InnerType_1 = &argumentValueType
-		}
+		innerType1 := argumentType.InnerType1.toApiType()
+		packageArgumentType.InnerType_1 = &innerType1
 	}
 	if argumentType.InnerType2 != nil {
-		if innerType2, ok := generated.ArgumentValueType_value[strings.ToUpper(argumentType.InnerType2.String())]; ok {
-			argumentValueType := generated.ArgumentValueType(innerType2)
-			packageArgumentType.InnerType_2 = &argumentValueType
-		}
+		innerType2 := argumentType.InnerType2.toApiType()
+		packageArgumentType.InnerType_2 = &innerType2
 	}
 	return packageArgumentType, true
 }

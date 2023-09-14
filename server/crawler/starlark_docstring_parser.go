@@ -9,6 +9,7 @@ import (
 var (
 	argumentNameAndTypeRegexp = regexp.MustCompile(`\s*(?P<name>[a-zA-Z0-9_]+)\s*(?P<type>\(.+\)|)`)
 	dictTypeRegexp            = regexp.MustCompile(`dict\s*\[(?P<keyType>[a-zA-Z]+)\s*,\s*(?P<valueType>[a-zA-Z]+)\s*\]`)
+	listTypeRegexp            = regexp.MustCompile(`list\s*\[(?P<valueType>[a-zA-Z]+)\s*\]`)
 )
 
 func ParseRunFunctionDocstring(rawDocstring string) (*KurtosisMainDotStar, error) {
@@ -98,6 +99,23 @@ func parseType(rawType string) *StarlarkArgumentType {
 				Type:       StarlarkValueType_Dict,
 				InnerType1: &parsedInnerType1,
 				InnerType2: &parsedInnerType2,
+			}
+		}
+	}
+
+	if listTypeRegexp.MatchString(trimmedType) {
+		nestedTypeGroups := listTypeRegexp.FindStringSubmatch(trimmedType)
+		// nolint: gomnd
+		if len(nestedTypeGroups) >= 2 {
+			parsedInnerType1, err := StarlarkValueTypeString(nestedTypeGroups[1])
+			if err != nil {
+				// unknown type, unable to parse it
+				return nil
+			}
+			return &StarlarkArgumentType{
+				Type:       StarlarkValueType_List,
+				InnerType1: &parsedInnerType1,
+				InnerType2: nil, // no inner type 2 for lists
 			}
 		}
 	}

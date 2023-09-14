@@ -1,0 +1,3 @@
+name: github.com/kurtosis-tech/kurtosis-package-indexer
+description: |
+  Kurtosis package to run Kurtosis Package Indexer within an enclave

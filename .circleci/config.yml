@@ -8,6 +8,11 @@ parameters:
     type: string
     default: "20.10.7"
 
+executors:
+  ubuntu_vm:
+    machine:
+      image: ubuntu-2004:202201-02
+
 # NOTE: Because CircleCI jobs run on separate machines from each other, we duplicate steps (like checkout) between jobs. This is because doing the "correct" DRY
 #  refactoring of, "one job for checkout, one job for build Docker image, etc." would require a) persisting files between jobs and b) persisting Docker images between
 #  jobs. Both are annoying (saving/loading workspaces require re-downloading the workspace over the network, and there doesn't seem to be a good way to do Docker
@@ -17,15 +22,9 @@ jobs:
   build_api_golang:
     docker:
       - image: "cimg/go:<< pipeline.parameters.go-version>>"
+    working_directory: /home/circleci/workspace
     steps:
       - checkout
-
-      # If the only changes are to the docs, don't run the slow (and expensive) code checks
-      # `git diff --exit-code` returns 0 exit code if no changes, and 1 if changes
-      - run: |
-          if git --no-pager diff --exit-code origin/develop...HEAD -- . ':!docs'; then
-            circleci-agent step halt
-          fi
 
       - run: |
           api/golang/scripts/build.sh
@@ -33,22 +32,45 @@ jobs:
   build_server:
     docker:
       - image: "cimg/go:<< pipeline.parameters.go-version>>"
+    working_directory: /home/circleci/workspace
     steps:
       - checkout
-
-      # If the only changes are to the docs, don't run the slow (and expensive) code checks
-      # `git diff --exit-code` returns 0 exit code if no changes, and 1 if changes
-      - run: |
-          if git --no-pager diff --exit-code origin/develop...HEAD -- . ':!docs'; then
-            circleci-agent step halt
-          fi
 
       - run: |
           server/scripts/build.sh
 
+      - persist_to_workspace:
+          root: /home/circleci/workspace
+          paths:
+            - server/build/kurtosis-package-indexer
+
+  run_kurtosis_package:
+    executor: ubuntu_vm
+    working_directory: /home/circleci/workspace
+    steps:
+      - checkout
+
+      - attach_workspace:
+          at: ./
+
+      - run: |
+          echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
+          sudo apt update
+          sudo apt install kurtosis-cli
+
+      - run: |
+          set -euo pipefail
+          source server/scripts/_constants.env
+          docker build -t "${IMAGE_ORG_AND_REPO}:dev" -f server/Dockerfile server/
+
+      - run: |
+          set -euo pipefail
+          kurtosis run ./kurtosis/main.star --enclave ci-check "{\"kurtosis_package_indexer_custom_version\": \"dev\", \"github_user_token\": \"${KURTOSISBOT_GITHUB_TOKEN}\"}"
+
   publish_server_image:
     docker:
       - image: "cimg/go:<< pipeline.parameters.go-version >>"
+    working_directory: /home/circleci/workspace
     steps:
       - checkout
 
@@ -57,8 +79,8 @@ jobs:
       - run: echo "${DOCKER_PASSWORD}" | docker login -u ${DOCKER_USERNAME} --password-stdin
 
       - run: |
-          skip_docker_image_building=true
           server/scripts/build.sh
+
       - run: |
           set -euo pipefail
           source server/scripts/_constants.env
@@ -87,6 +109,17 @@ workflows:
       - build_server:
           context:
             - github-user
+          filters:
+            branches:
+              ignore:
+                - develop
+                - main
+      - run_kurtosis_package:
+          context:
+            - github-user
+          requires:
+            - build_api_golang
+            - build_server
           filters:
             branches:
               ignore:

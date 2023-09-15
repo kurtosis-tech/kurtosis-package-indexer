@@ -1,23 +1,32 @@
-KURTOSIS_PACKAGE_INDEXER_IMAGE = "kurtosistech/kurtosis-package-indexer"
-KURTOSIS_PACKAGE_INDEXER_DEFAULT_VERSION = "0.0.7"
+etcd_module = import_module("github.com/kurtosis-tech/etcd-package/main.star")
 
+KURTOSIS_PACKAGE_INDEXER_IMAGE = "kurtosistech/kurtosis-package-indexer"
+
+KURTOSIS_PACKAGE_INDEXER_DATA_DIR = "/data"
 KURTOSIS_PACKAGE_INDEXER_PORT_ID = "http"
 KURTOSIS_PACKAGE_INDEXER_PORT_NUM = 9770
 
 AWS_S3_BUCKET_SUBFOLDER = "kurtosis-package-indexer"
 
+STORE_IN_MEMORY = "IN_MEMORY"
+STORE_BOLT = "BOLT"
+STORE_ETCD = "ETCD"
+
 
 def run(
     plan,
+    backing_store=STORE_IN_MEMORY,
     github_user_token="",
-    kurtosis_package_indexer_custom_version="",
+    kurtosis_package_indexer_version="0.0.7",
     aws_env={},
 ):
     """Runs a Kurtosis package indexer service, listening on port 9770
 
     Args:
+        backing_store (string): The backing store to use. If specified, it should be one of `IN_MEMORY`, `BOLT`
+            or `ETCD`- defaults to in-memory store
         github_user_token (string): The Github user token to use to authenticate to Github
-        kurtosis_package_indexer_custom_version (string): A custom version for the container image
+        kurtosis_package_indexer_version (string): The version of the the container image to use
         aws_env (dict[string, string]): The AWS information required to optionally pull the Github token 
             from a file in an AWS bucket. This file should be located at 
             `<BUCKET_ROOT>/<OPTIONAL_FOLDER>/kurtosis-package-indexer/github-user-token.txt`. 
@@ -32,7 +41,7 @@ def run(
             }
             ```
     Returns:
-        The service object containing useful information on the running service. Typically:
+        The service object containing useful information on the running Kurtosis Package Indexer. Typically:
         ```
         {
             "hostname": "kurtosis-package-indexer",
@@ -42,9 +51,7 @@ def run(
         }
         ```
     """
-    indexer_env_vars = {
-        "BOLT_DATABASE_FILE_PATH": "/data/bolt.db"
-    }
+    indexer_env_vars = store_env_vars(plan, backing_store)
     if len(github_user_token) > 0:
         indexer_env_vars["GITHUB_USER_TOKEN"] = github_user_token
     else:
@@ -55,10 +62,7 @@ def run(
         indexer_env_vars["AWS_BUCKET_NAME"] = aws_env.bucket_name
         indexer_env_vars["AWS_BUCKET_FOLDER"] = "{}/{}".format(aws_env.bucket_user_folder, AWS_S3_BUCKET_SUBFOLDER)
 
-    image_name_and_version = "{}:{}".format(
-        KURTOSIS_PACKAGE_INDEXER_IMAGE,
-        kurtosis_package_indexer_custom_version if kurtosis_package_indexer_custom_version != "" else KURTOSIS_PACKAGE_INDEXER_DEFAULT_VERSION
-    )
+    image_name_and_version = "{}:{}".format(KURTOSIS_PACKAGE_INDEXER_IMAGE, kurtosis_package_indexer_version)
     indexer_service = plan.add_service(
         name="kurtosis-package-indexer",
         config=ServiceConfig(
@@ -67,8 +71,8 @@ def run(
                 KURTOSIS_PACKAGE_INDEXER_PORT_ID: PortSpec(KURTOSIS_PACKAGE_INDEXER_PORT_NUM),
             },
             files={
-                "/data/": Directory(
-                    persistent_key="bold_db_data"
+                KURTOSIS_PACKAGE_INDEXER_DATA_DIR: Directory(
+                    persistent_key="kurtosis_indexer_data_dir"
                 ),
             },
             env_vars=indexer_env_vars,
@@ -99,7 +103,6 @@ def get_aws_env(aws_env):
     aws_bucket_region = aws_env["bucket_region"] if "bucket_region" in aws_env else ""
     aws_bucket_name = aws_env["bucket_name"] if "bucket_name" in aws_env else ""
     aws_bucket_user_folder = aws_env["bucket_user_folder"] if "bucket_user_folder" in aws_env else ""
-
     if len(aws_access_key_id) == 0 and len(aws_secret_access_key) == 0 and len(aws_bucket_region) and len(aws_bucket_name) == 0:
         # the AWS values should be provided as env variables to the package. Otherwise this package cannot run
         return struct(
@@ -117,3 +120,15 @@ def get_aws_env(aws_env):
         bucket_name=aws_bucket_name,
         bucket_user_folder=aws_bucket_user_folder,
     )
+
+
+def store_env_vars(plan, backing_store_setting):
+    env_vars = {}
+    if backing_store_setting == STORE_ETCD:
+        etcd_database = etcd_module.run(plan)
+        env_vars["ETCD_DATABASE_URLS"] = "http://{}:{}".format(etcd_database["hostname"], etcd_database["port"])
+    elif backing_store_setting == STORE_BOLT:
+        env_vars["BOLT_DATABASE_FILE_PATH"] = "{}/bolt.db".format(KURTOSIS_PACKAGE_INDEXER_DATA_DIR)
+    elif backing_store_setting != STORE_IN_MEMORY:
+        plan.print("Backing store setting '{}' unknown. Defaulting to in-memory store".format(backing_store_setting))
+    return env_vars

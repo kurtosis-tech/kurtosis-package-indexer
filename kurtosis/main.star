@@ -10,23 +10,27 @@ AWS_S3_BUCKET_SUBFOLDER = "kurtosis-package-indexer"
 def run(
     plan,
     github_user_token="",
-    aws_access_key_id="",
-    aws_secret_access_key="",
-    aws_bucket_region="",
-    aws_bucket_name="",
-    aws_bucket_user_folder="",
     kurtosis_package_indexer_custom_version="",
+    aws_env={},
 ):
     """Runs a Kurtosis package indexer service, listening on port 9770
 
     Args:
-        github_user_token: The Github user token to use to authenticate to Github
-        aws_access_key_id: The AWS access key ID to authenticate to AWS
-        aws_secret_access_key: The AWS secret key to authenticate to AWS
-        aws_bucket_region: The region of the AWS bucket to read from
-        aws_bucket_name: The name of the bucket to read from
-        aws_bucket_user_folder: The folder inside the AWS bucket
-        kurtosis_package_indexer_custom_version: A custom version for the container image
+        github_user_token (string): The Github user token to use to authenticate to Github
+        kurtosis_package_indexer_custom_version (string): A custom version for the container image
+        aws_env (dict[string, string]): The AWS information required to optionally pull the Github token 
+            from a file in an AWS bucket. This file should be located at 
+            `<BUCKET_ROOT>/<OPTIONAL_FOLDER>/kurtosis-package-indexer/github-user-token.txt`. 
+            The dictionary should contain the following fields:
+            ```
+            {
+                "aws_access_key_id": "<AWS_KEY_ID_TO_AUTHENTICATE>",
+                "aws_secret_access_key": "<AWS_SECRET_ACCESS_KEY_TO_AUTHENTICATE>",
+                "aws_bucket_region": "<AWS_BUCKET_REGION>",
+                "aws_bucket_name": "<AWS_BUCKET_NAME>",
+                "aws_bucket_user_folder": "<OPTIONAL_FOLDER_IN_AWS_BUCKET>",
+            }
+            ```
     Returns:
         The service object containing useful information on the running service. Typically:
         ```
@@ -44,7 +48,7 @@ def run(
     if len(github_user_token) > 0:
         indexer_env_vars["GITHUB_USER_TOKEN"] = github_user_token
     else:
-        aws_env = get_aws_env(aws_access_key_id, aws_secret_access_key, aws_bucket_region, aws_bucket_name, aws_bucket_user_folder)
+        aws_env = get_aws_env(aws_env)
         indexer_env_vars["AWS_ACCESS_KEY_ID"] = aws_env.access_key_id
         indexer_env_vars["AWS_SECRET_ACCESS_KEY"] = aws_env.secret_access_key
         indexer_env_vars["AWS_BUCKET_REGION"] = aws_env.bucket_region
@@ -89,21 +93,27 @@ def run(
     )
 
 
+def get_aws_env(aws_env):
+    aws_access_key_id = aws_env["access_key_id"] if "access_key_id" in aws_env else ""
+    aws_secret_access_key = aws_env["secret_access_key"] if "secret_access_key" in aws_env else ""
+    aws_bucket_region = aws_env["bucket_region"] if "bucket_region" in aws_env else ""
+    aws_bucket_name = aws_env["bucket_name"] if "bucket_name" in aws_env else ""
+    aws_bucket_user_folder = aws_env["bucket_user_folder"] if "bucket_user_folder" in aws_env else ""
 
-def get_aws_env(aws_access_key_id, aws_secret_access_key, aws_bucket_region, aws_bucket_name, aws_bucket_user_folder):
     if len(aws_access_key_id) == 0 and len(aws_secret_access_key) == 0 and len(aws_bucket_region) and len(aws_bucket_name) == 0:
+        # the AWS values should be provided as env variables to the package. Otherwise this package cannot run
         return struct(
-            access_key_id=aws_access_key_id,
-            secret_access_key=aws_secret_access_key,
-            bucket_region=aws_bucket_region,
-            bucket_name=aws_bucket_name,
-            bucket_user_folder=aws_bucket_user_folder,
+            access_key_id=kurtosis.aws_access_key_id,
+            secret_access_key=kurtosis.aws_secret_access_key,
+            bucket_region=kurtosis.aws_bucket_region,
+            bucket_name=kurtosis.aws_bucket_name,
+            bucket_user_folder=kurtosis.aws_bucket_user_folder,
         )
-    # the AWS values should be provided as env variables to the package. Otherwise this package cannot run
+    
     return struct(
-        access_key_id=kurtosis.aws_access_key_id,
-        secret_access_key=kurtosis.aws_secret_access_key,
-        bucket_region=kurtosis.aws_bucket_region,
-        bucket_name=kurtosis.aws_bucket_name,
-        bucket_user_folder=kurtosis.aws_bucket_user_folder,
+        access_key_id=aws_access_key_id,
+        secret_access_key=aws_secret_access_key,
+        bucket_region=aws_bucket_region,
+        bucket_name=aws_bucket_name,
+        bucket_user_folder=aws_bucket_user_folder,
     )

@@ -38,7 +38,9 @@ def run(
         }
         ```
     """
-    indexer_env_vars = {}
+    indexer_env_vars = {
+        "BOLT_DATABASE_FILE_PATH": "/data/bolt.db"
+    }
     if len(github_user_token) > 0:
         indexer_env_vars["GITHUB_USER_TOKEN"] = github_user_token
     else:
@@ -59,6 +61,11 @@ def run(
             image=image_name_and_version,
             ports={
                 KURTOSIS_PACKAGE_INDEXER_PORT_ID: PortSpec(KURTOSIS_PACKAGE_INDEXER_PORT_NUM),
+            },
+            files={
+                "/data/": Directory(
+                    persistent_key="bold_db_data"
+                ),
             },
             env_vars=indexer_env_vars,
             ready_conditions=ReadyCondition(

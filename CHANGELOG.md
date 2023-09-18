@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.0.8](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.7...0.0.8) (2023-09-15)
+
+
+### Features
+
+* Add Kurtosis package to run the indexer in a Kurtosis enclave ([#19](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/19)) ([c343f0d](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/c343f0d70c92c65eae1c5cac39bea3f5e03ca293))
+* Parse docstring of the run function in main.star ([#28](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/28)) ([09b6692](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/09b669296b3a8248c14e04e4a5fc827f2d007654))
+* Persistent KV store using BBolt ([#31](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/31)) ([5748f25](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/5748f253910369c5d2c8e007d2c07af8fa648355))
+* Support `list` type in docstrings ([#30](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/30)) ([3b778a4](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/3b778a4973efe843d30c7145b21a8e0f64246688))
+
 ## [0.0.7](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.6...0.0.7) (2023-08-31)
 
 

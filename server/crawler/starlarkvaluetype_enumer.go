@@ -7,11 +7,11 @@ import (
 	"strings"
 )
 
-const _StarlarkValueTypeName = "StringBoolIntFloatListDictJson"
+const _StarlarkValueTypeName = "StringBoolIntListDictJson"
 
-var _StarlarkValueTypeIndex = [...]uint8{0, 6, 10, 13, 18, 22, 26, 30}
+var _StarlarkValueTypeIndex = [...]uint8{0, 6, 10, 13, 17, 21, 25}
 
-const _StarlarkValueTypeLowerName = "stringboolintfloatlistdictjson"
+const _StarlarkValueTypeLowerName = "stringboolintlistdictjson"
 
 func (i StarlarkValueType) String() string {
 	if i < 0 || i >= StarlarkValueType(len(_StarlarkValueTypeIndex)-1) {
@@ -27,13 +27,12 @@ func _StarlarkValueTypeNoOp() {
 	_ = x[StarlarkValueType_String-(0)]
 	_ = x[StarlarkValueType_Bool-(1)]
 	_ = x[StarlarkValueType_Int-(2)]
-	_ = x[StarlarkValueType_Float-(3)]
-	_ = x[StarlarkValueType_List-(4)]
-	_ = x[StarlarkValueType_Dict-(5)]
-	_ = x[StarlarkValueType_Json-(6)]
+	_ = x[StarlarkValueType_List-(3)]
+	_ = x[StarlarkValueType_Dict-(4)]
+	_ = x[StarlarkValueType_Json-(5)]
 }
 
-var _StarlarkValueTypeValues = []StarlarkValueType{StarlarkValueType_String, StarlarkValueType_Bool, StarlarkValueType_Int, StarlarkValueType_Float, StarlarkValueType_List, StarlarkValueType_Dict, StarlarkValueType_Json}
+var _StarlarkValueTypeValues = []StarlarkValueType{StarlarkValueType_String, StarlarkValueType_Bool, StarlarkValueType_Int, StarlarkValueType_List, StarlarkValueType_Dict, StarlarkValueType_Json}
 
 var _StarlarkValueTypeNameToValueMap = map[string]StarlarkValueType{
 	_StarlarkValueTypeName[0:6]:        StarlarkValueType_String,
@@ -42,24 +41,21 @@ var _StarlarkValueTypeNameToValueMap = map[string]StarlarkValueType{
 	_StarlarkValueTypeLowerName[6:10]:  StarlarkValueType_Bool,
 	_StarlarkValueTypeName[10:13]:      StarlarkValueType_Int,
 	_StarlarkValueTypeLowerName[10:13]: StarlarkValueType_Int,
-	_StarlarkValueTypeName[13:18]:      StarlarkValueType_Float,
-	_StarlarkValueTypeLowerName[13:18]: StarlarkValueType_Float,
-	_StarlarkValueTypeName[18:22]:      StarlarkValueType_List,
-	_StarlarkValueTypeLowerName[18:22]: StarlarkValueType_List,
-	_StarlarkValueTypeName[22:26]:      StarlarkValueType_Dict,
-	_StarlarkValueTypeLowerName[22:26]: StarlarkValueType_Dict,
-	_StarlarkValueTypeName[26:30]:      StarlarkValueType_Json,
-	_StarlarkValueTypeLowerName[26:30]: StarlarkValueType_Json,
+	_StarlarkValueTypeName[13:17]:      StarlarkValueType_List,
+	_StarlarkValueTypeLowerName[13:17]: StarlarkValueType_List,
+	_StarlarkValueTypeName[17:21]:      StarlarkValueType_Dict,
+	_StarlarkValueTypeLowerName[17:21]: StarlarkValueType_Dict,
+	_StarlarkValueTypeName[21:25]:      StarlarkValueType_Json,
+	_StarlarkValueTypeLowerName[21:25]: StarlarkValueType_Json,
 }
 
 var _StarlarkValueTypeNames = []string{
 	_StarlarkValueTypeName[0:6],
 	_StarlarkValueTypeName[6:10],
 	_StarlarkValueTypeName[10:13],
-	_StarlarkValueTypeName[13:18],
-	_StarlarkValueTypeName[18:22],
-	_StarlarkValueTypeName[22:26],
-	_StarlarkValueTypeName[26:30],
+	_StarlarkValueTypeName[13:17],
+	_StarlarkValueTypeName[17:21],
+	_StarlarkValueTypeName[21:25],
 }
 
 // StarlarkValueTypeString retrieves an enum value from the enum constants string name.

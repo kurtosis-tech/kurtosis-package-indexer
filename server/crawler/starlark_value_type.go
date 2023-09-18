@@ -12,7 +12,6 @@ const (
 	StarlarkValueType_String StarlarkValueType = iota
 	StarlarkValueType_Bool
 	StarlarkValueType_Int
-	StarlarkValueType_Float
 	StarlarkValueType_List
 	StarlarkValueType_Dict
 	StarlarkValueType_Json
@@ -28,8 +27,6 @@ func (starlarkValueType StarlarkValueType) toApiType() generated.ArgumentValueTy
 		return generated.ArgumentValueType_BOOL
 	case StarlarkValueType_Int:
 		return generated.ArgumentValueType_INTEGER
-	case StarlarkValueType_Float:
-		return generated.ArgumentValueType_FLOAT
 	case StarlarkValueType_List:
 		return generated.ArgumentValueType_LIST
 	case StarlarkValueType_Dict:

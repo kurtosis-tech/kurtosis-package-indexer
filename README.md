@@ -20,7 +20,7 @@ Right now, the indexer first tries reading the `GITHUB_USER_TOKEN` environment v
 to the S3 bucket option.
 
 ### Using a Github token via an environment variable
-This is the simplest. The indexer expects a valid Github token stored inside the environment variable `GITHUB_USER_TOKEN`
+This is the simplest. The indexer expects a valid Github token stored inside the environment variable `GITHUB_USER_TOKEN`.
 
 ### Using a file stored inside an S3 bucket
 The indexer can also get the Github token from a file stored inside an S3 bucket.
@@ -37,9 +37,14 @@ Data persistence
 ----------------
 
 The Kurtosis packages information are stored by default in-memory. Everytime the indexer is restarted, it re-runs the
-Github searches to fetch the latest information about the packages on Github
+Github searches to fetch the latest information about the packages on Github.
 
 There's also the option of persisting the data to a [bolt](https://github.com/etcd-io/bbolt) key value store, so that 
 services can be restarted keeping the data intact. To use it, the environment variable `BOLT_DATABASE_FILE_PATH` can 
 be set to point to a file on disk that bolt will use to store the data. If the indexer is being run in a container, a 
 persistent volume should be used to fully benefit from this feature.
+
+Ultimately, to make the indexer fully stateless, data can also be stored in an external 
+[ETCD](https://etcd.io/) key value store. Once the ETCD cluster is up and running, the indexer can be started with the
+environment variable `ETCD_DATABASE_URLS` set to the list of ETCD nodes URLs separated by a comma: 
+`http://etcd.node.1:2379,http://etcd.node.2:2379,http://etcd.node.3:2379`.

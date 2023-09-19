@@ -71,6 +71,42 @@ func (crawler *GithubCrawler) Schedule(forceRunNow bool) error {
 }
 
 func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime time.Time) {
+	crawlSuccessful := false
+	lastCrawlDatetime, err := crawler.store.GetLastCrawlDatetime(ctx)
+	if err != nil {
+		logrus.Errorf("Could not retrieve last crawl datetime from the store. This is not critical, crawling"+
+			"will just continue even though the last crawl might be recent. Error was:\n%s", err.Error())
+	}
+	if time.Since(lastCrawlDatetime) < crawlFrequency {
+		logrus.Infof("Last crawling happened as '%v' ('%v' ago), which is more recent than the crawling frequency "+
+			"set to '%v', so crawling will be skipped. If the indexer is running with more than one node, it might be "+
+			"that another node did the crawling in between, and this is totally expected.",
+			lastCrawlDatetime, time.Since(lastCrawlDatetime), crawlFrequency)
+		return
+	}
+
+	// we persist the crawl datetime before doing the crawl so that potential other nodes don't crawl at the same time
+	currentCrawlDatetime := time.Now()
+	if err = crawler.store.UpdateLastCrawlDatetime(crawler.ctx, currentCrawlDatetime); err != nil {
+		logrus.Errorf("An error occurred persisting crawl time to database. This is not critical, but in case of "+
+			"a service restart (or in a multiple nodes environment), crawling might happen more frequently than "+
+			"expected. Error was was:\n%v", err.Error())
+	} else {
+		defer func() {
+			if crawlSuccessful {
+				return
+			}
+			logrus.Debugf("Reverting the last crawl datetime to '%s'. Current value is '%s'",
+				lastCrawlDatetime, currentCrawlDatetime)
+			// revert the crawl datetime to its previous value
+			if err = crawler.store.UpdateLastCrawlDatetime(crawler.ctx, lastCrawlDatetime); err != nil {
+				logrus.Errorf("An error occurred reverting the last crawl datetime to '%s'. Its value"+
+					"will remain '%s' and no crawl will happen before '%s'. Error was was:\n%v",
+					lastCrawlDatetime, currentCrawlDatetime, currentCrawlDatetime.Add(crawlFrequency), err.Error())
+			}
+		}()
+	}
+
 	authenticatedHttpClient, err := AuthenticatedHttpClientFromEnvVar(ctx)
 	if err != nil {
 		logrus.Warnf("Unable to build authenticated Github client from environment variable. It will now try "+
@@ -84,23 +120,20 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 			return
 		}
 	}
-
 	githubClient := github.NewClient(authenticatedHttpClient.Client)
 
 	logrus.Info("Crawling Github for Kurtosis packages")
 	repoUpdated, repoRemoved, err := crawler.crawlKurtosisPackages(ctx, githubClient)
 	if err != nil {
-		logrus.Errorf("An error occurred crawling Github for Kurtosis packages. Will try again in '%v'. "+
-			"Error was:\n%v", crawlFrequency, err.Error())
+		logrus.Errorf("An error occurred crawling Github for Kurtosis packages. The last crawl datetime"+
+			"will be reverted to its previous value '%v'. This node will try crawling again in '%v'. "+
+			"Error was:\n%s", lastCrawlDatetime, crawlFrequency, err.Error())
+		crawlSuccessful = false
 	} else {
-		if err := crawler.store.UpdateLastCrawlDatetime(crawler.ctx, time.Now()); err != nil {
-			logrus.Errorf("An error occurred persisting crawl time to database. In case of a service restart, "+
-				"crawling might happen earlier than '%v' (which is the theorical time of the next crawling). "+
-				"Error was:\n%v", time.Now().Add(crawlFrequency), err.Error())
-		}
+		crawlSuccessful = true
 	}
-	logrus.Infof("Crawling finished in %v. Repository updated: %d - removed: %d",
-		time.Since(tickerTime), repoUpdated, repoRemoved)
+	logrus.Infof("Crawling finished in '%v'. Success: '%v'. Repository updated: %d - removed: %d",
+		time.Since(tickerTime), crawlSuccessful, repoUpdated, repoRemoved)
 }
 
 func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubClient *github.Client) (int, int, error) {

@@ -200,15 +200,8 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 					arg.Type, arg.Name, kurtosisPackageContent.Identifier)
 			}
 		}
-
-		var convertedPackageArgTypeV1Ptr *generated.ArgumentValueType
-		if arg.Type != nil {
-			// if arg.Type is not nil then arg.Type.Type cannot be nil as it is a required field
-			convertedPackageArgTypeV1Raw := arg.Type.Type.toApiType()
-			convertedPackageArgTypeV1Ptr = &convertedPackageArgTypeV1Raw
-		}
 		convertedPackageArg = api_constructors.NewPackageArg(
-			arg.Name, arg.Description, arg.IsRequired, convertedPackageArgTypeV1Ptr, convertedPackageArgTypeV2Ptr)
+			arg.Name, arg.Description, arg.IsRequired, convertedPackageArgTypeV2Ptr)
 		kurtosisPackageArgsApi = append(kurtosisPackageArgsApi, convertedPackageArg)
 	}
 	return api_constructors.NewKurtosisPackage(

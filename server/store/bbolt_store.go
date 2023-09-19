@@ -67,20 +67,19 @@ func (store *BboltStore) GetKurtosisPackages(_ context.Context) ([]*generated.Ku
 	return packages, nil
 }
 
-func (store *BboltStore) UpsertPackage(_ context.Context, kurtosisPackage *generated.KurtosisPackage) error {
+func (store *BboltStore) UpsertPackage(_ context.Context, kurtosisPackageLocator string, kurtosisPackage *generated.KurtosisPackage) error {
 	err := store.db.Update(func(tx *bbolt.Tx) error {
-		kurtosisPackageName := kurtosisPackage.GetName()
-		serializedPackageInfo, err := serializePackageInfo(kurtosisPackage.GetName(), kurtosisPackage)
+		serializedPackageInfo, err := serializePackageInfo(kurtosisPackageLocator, kurtosisPackage)
 		if err != nil {
-			return stacktrace.Propagate(err, "An error occurred serializing package information '%s' prior to persisting it to the Bbolt database", kurtosisPackageName)
+			return stacktrace.Propagate(err, "An error occurred serializing package information '%s' prior to persisting it to the Bbolt database", kurtosisPackageLocator)
 		}
 		bucketInstance, err := tx.CreateBucketIfNotExists([]byte(kurtosisPackagesBucketName))
 		if err != nil {
 			return stacktrace.Propagate(err, "Unable to create or get bucket from Bbolt database")
 		}
-		packageNameKey := compositePackageKey(kurtosisPackageName)
+		packageNameKey := compositePackageKey(kurtosisPackageLocator)
 		if err := bucketInstance.Put(packageNameKey, serializedPackageInfo); err != nil {
-			return stacktrace.Propagate(err, "An error occurred persisting serialized package info to Bbolt database for package '%s'", kurtosisPackageName)
+			return stacktrace.Propagate(err, "An error occurred persisting serialized package info to Bbolt database for package '%s'", kurtosisPackageLocator)
 		}
 		return nil
 	})
@@ -90,21 +89,21 @@ func (store *BboltStore) UpsertPackage(_ context.Context, kurtosisPackage *gener
 	return nil
 }
 
-func (store *BboltStore) DeletePackage(_ context.Context, packageName KurtosisPackageIdentifier) error {
+func (store *BboltStore) DeletePackage(_ context.Context, kurtosisPackageLocator string) error {
 	err := store.db.Update(func(tx *bbolt.Tx) error {
 		bucketInstance := tx.Bucket([]byte(kurtosisPackagesBucketName))
 		if bucketInstance == nil {
 			// no bucket means not data, nothing to delete
 			return nil
 		}
-		packageNameKey := compositePackageKey(string(packageName))
+		packageNameKey := compositePackageKey(kurtosisPackageLocator)
 		if err := bucketInstance.Delete(packageNameKey); err != nil {
-			return stacktrace.Propagate(err, "An error occurred deleting package info from Bbolt database for package '%s'", packageName)
+			return stacktrace.Propagate(err, "An error occurred deleting package info from Bbolt database for package '%s'", kurtosisPackageLocator)
 		}
 		return nil
 	})
 	if err != nil {
-		return stacktrace.Propagate(err, "An error occurred deleting package '%s' from Bbolt database", packageName)
+		return stacktrace.Propagate(err, "An error occurred deleting package '%s' from Bbolt database", kurtosisPackageLocator)
 	}
 	return nil
 }

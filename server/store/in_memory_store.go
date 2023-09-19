@@ -9,13 +9,13 @@ import (
 type InMemoryStore struct {
 	lastCrawlTime time.Time
 
-	packages map[KurtosisPackageIdentifier]*generated.KurtosisPackage
+	packages map[string]*generated.KurtosisPackage
 }
 
 func newInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
 		lastCrawlTime: time.Time{},
-		packages:      map[KurtosisPackageIdentifier]*generated.KurtosisPackage{},
+		packages:      map[string]*generated.KurtosisPackage{},
 	}
 }
 
@@ -31,13 +31,13 @@ func (store *InMemoryStore) GetKurtosisPackages(_ context.Context) ([]*generated
 	return packages, nil
 }
 
-func (store *InMemoryStore) UpsertPackage(_ context.Context, kurtosisPackage *generated.KurtosisPackage) error {
-	store.packages[KurtosisPackageIdentifier(kurtosisPackage.GetName())] = kurtosisPackage
+func (store *InMemoryStore) UpsertPackage(_ context.Context, kurtosisPackageLocator string, kurtosisPackage *generated.KurtosisPackage) error {
+	store.packages[kurtosisPackageLocator] = kurtosisPackage
 	return nil
 }
 
-func (store *InMemoryStore) DeletePackage(_ context.Context, packageName KurtosisPackageIdentifier) error {
-	delete(store.packages, packageName)
+func (store *InMemoryStore) DeletePackage(_ context.Context, packageLocator string) error {
+	delete(store.packages, packageLocator)
 	return nil
 }
 

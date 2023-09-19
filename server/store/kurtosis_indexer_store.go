@@ -18,14 +18,26 @@ const (
 type KurtosisIndexerStore interface {
 	Close() error
 
+	// GetKurtosisPackages returns the entire list of Kurtosis packages currently stored by the indexer
 	GetKurtosisPackages(ctx context.Context) ([]*generated.KurtosisPackage, error)
 
-	UpsertPackage(ctx context.Context, kurtosisPackage *generated.KurtosisPackage) error
+	// UpsertPackage either insert or update the Kurtosis package information stored with the locator
+	// `kurtosisPackageLocator`
+	UpsertPackage(ctx context.Context, kurtosisPackageLocator string, kurtosisPackage *generated.KurtosisPackage) error
 
-	DeletePackage(ctx context.Context, packageName KurtosisPackageIdentifier) error
+	// DeletePackage deletes the Kurtosis package information stored with the locator `kurtosisPackageLocator`.
+	// It no-ops if no packages is stored for this locator
+	DeletePackage(ctx context.Context, kurtosisPackageLocator string) error
 
+	// UpdateLastCrawlDatetime updates the date time at which the last crawling happened.
+	// It is helpful to store this information so that the indexer doesn't systematically crawl everytime it is
+	// restarted. Note though that to fully benefit from this, the indexer needs to be run with a persistent store (
+	// either bolt with a persistent volume, or etcd)
 	UpdateLastCrawlDatetime(ctx context.Context, lastCrawlTime time.Time) error
 
+	// GetLastCrawlDatetime returns the datetime at which the last crawling happened. If no datetime is currently
+	// stored (b/c no crawling has ever happened, or the store is not persistent), it returns time.Time{}
+	// (i.e. the zero value for time)
 	GetLastCrawlDatetime(ctx context.Context) (time.Time, error)
 }
 

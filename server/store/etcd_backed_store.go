@@ -71,9 +71,9 @@ func (store *EtcdBackedStore) GetKurtosisPackages(ctx context.Context) ([]*gener
 	return kurtosisPackages, nil
 }
 
-func (store *EtcdBackedStore) UpsertPackage(ctx context.Context, kurtosisPackage *generated.KurtosisPackage) error {
-	kurtosisPackageKey := compositePackageKey(kurtosisPackage.GetName())
-	serializedKurtosisPackage, err := serializePackageInfo(kurtosisPackage.GetName(), kurtosisPackage)
+func (store *EtcdBackedStore) UpsertPackage(ctx context.Context, kurtosisPackageLocator string, kurtosisPackage *generated.KurtosisPackage) error {
+	kurtosisPackageKey := compositePackageKey(kurtosisPackageLocator)
+	serializedKurtosisPackage, err := serializePackageInfo(kurtosisPackageLocator, kurtosisPackage)
 	if err != nil {
 		return stacktrace.Propagate(err, "An error occurred serializing Kurtosis package info")
 	}
@@ -86,12 +86,12 @@ func (store *EtcdBackedStore) UpsertPackage(ctx context.Context, kurtosisPackage
 	return nil
 }
 
-func (store *EtcdBackedStore) DeletePackage(ctx context.Context, packageName KurtosisPackageIdentifier) error {
-	kurtosisPackageKey := compositePackageKey(string(packageName))
+func (store *EtcdBackedStore) DeletePackage(ctx context.Context, kurtosisPackageLocator string) error {
+	kurtosisPackageKey := compositePackageKey(kurtosisPackageLocator)
 	_, err := store.client.Delete(ctx, string(kurtosisPackageKey))
 	if err != nil {
 		return stacktrace.Propagate(err, "An error occurred deleting package in etcd database: '%s'",
-			packageName)
+			kurtosisPackageLocator)
 	}
 	return nil
 }

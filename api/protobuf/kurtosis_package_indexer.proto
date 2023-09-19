@@ -26,11 +26,14 @@ message KurtosisPackage {
 
   string description = 4;
 
-  string url = 5;
+  // deprecated: use a combination of repository_url and root_path instead
+  optional string url = 5;
 
   string entrypoint_description = 6;
 
   string returns_description = 7;
+
+  PackageRepository repository_metadata = 8;
 }
 
 message PackageArg {
@@ -58,4 +61,14 @@ message PackageArgumentType {
   optional ArgumentValueType inner_type_1 = 2;
 
   optional ArgumentValueType inner_type_2 = 3;
+}
+
+message PackageRepository {
+  string base_url = 1;
+
+  string owner = 2;
+
+  string name = 3;
+
+  string root_path = 4;
 }

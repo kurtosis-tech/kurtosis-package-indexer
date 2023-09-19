@@ -14,12 +14,14 @@ import (
 )
 
 const (
-	crawlFrequency = 2 * time.Hour
+	crawlFrequency = 5 * time.Minute
 
 	kurtosisYamlFileName        = "kurtosis.yml"
 	starlarkMainDotStarFileName = "main.star"
 
 	githubPageSize = 100 // that's the maximum allowed by GitHub API
+
+	githubUrl = "github.com"
 )
 
 type GithubCrawler struct {
@@ -123,7 +125,7 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 	githubClient := github.NewClient(authenticatedHttpClient.Client)
 
 	logrus.Info("Crawling Github for Kurtosis packages")
-	repoUpdated, repoRemoved, err := crawler.crawlKurtosisPackages(ctx, githubClient)
+	packageUpdated, packageAdded, packageRemoved, err := crawler.crawlKurtosisPackages(ctx, githubClient)
 	if err != nil {
 		logrus.Errorf("An error occurred crawling Github for Kurtosis packages. The last crawl datetime"+
 			"will be reverted to its previous value '%v'. This node will try crawling again in '%v'. "+
@@ -132,61 +134,90 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 	} else {
 		crawlSuccessful = true
 	}
-	logrus.Infof("Crawling finished in '%v'. Success: '%v'. Repository updated: %d - removed: %d",
-		time.Since(tickerTime), crawlSuccessful, repoUpdated, repoRemoved)
+	logrus.Infof("Crawling finished in %v. Success: '%v'. Repository updated: %d - added: %d - removed: %d",
+		time.Since(tickerTime), crawlSuccessful, packageUpdated, packageAdded, packageRemoved)
 }
 
-func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubClient *github.Client) (int, int, error) {
-	var repoUpdated, repoRemoved int
+func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubClient *github.Client) (int, int, int, error) {
+	kurtosisPackageUpdated := map[string]bool{}
+	kurtosisPackageRemoved := map[string]bool{}
+	kurtosisPackageAdded := map[string]bool{}
 
-	allKurtosisPackageLocators, err := getKurtosisPackageLocators(ctx, githubClient)
+	// First, we refresh the packages that are currently stored, and remove them if they don't exist anymore
+	currentlyStoredPackages, err := crawler.store.GetKurtosisPackages(ctx)
 	if err != nil {
-		return 0, 0, stacktrace.Propagate(err, "Error search for Kurtosis package repositories on Github")
+		return 0, 0, 0, stacktrace.Propagate(err, "An error occurred retrieving currently stored packages")
 	}
-
-	existingPackages := map[store.KurtosisPackageIdentifier]bool{}
-	for _, kurtosisPackageLocator := range allKurtosisPackageLocators {
-		kurtosisPackageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageLocator)
+	for _, storedPackage := range currentlyStoredPackages {
+		apiRepositoryMetadata := storedPackage.GetRepositoryMetadata()
+		kurtosisPackageMetadata := NewPackageRepositoryMetadata(
+			apiRepositoryMetadata.GetOwner(),
+			apiRepositoryMetadata.GetName(),
+			apiRepositoryMetadata.GetRootPath(),
+			kurtosisYamlFileName,
+			storedPackage.GetStars(), // this is optional here as it will be updated extractKurtosisPackageContent below
+		)
+		packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
+		logrus.Debugf("Trying to update content of package '%s'", packageRepositoryLocator) // TODO: remove log line
+		kurtosisPackageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 		if err != nil {
-			return repoUpdated, repoRemoved, stacktrace.Propagate(err, "An unexpected error occurred retrieving content for Kurtosis package repository '%s' with root '%s'",
-				kurtosisPackageLocator.Repository.GetFullName(), kurtosisPackageLocator.RootPath)
+			return 0, 0, 0, stacktrace.Propagate(err, "An unexpected error occurred retrieving content for Kurtosis package repository '%s'",
+				packageRepositoryLocator)
 		}
 		if !ok {
-			logrus.Warnf("Kurtosis package repository content '%s/%s' could not be retrieved. Does it contain a valid "+
+			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved. It will be "+
+				"removed from the store", packageRepositoryLocator)
+			kurtosisPackageRemoved[packageRepositoryLocator] = true
+			if err := crawler.store.DeletePackage(ctx, packageRepositoryLocator); err != nil {
+				logrus.Warnf("An error occurred removing package '%s' from repository '%s' from the store. It will remain but the "+
+					"package doesn't exist anymore.", kurtosisPackageContent.Name, packageRepositoryLocator)
+			}
+		} else {
+			logrus.Debugf("Updating package content '%s' from repository '%s'",
+				kurtosisPackageContent.Name, packageRepositoryLocator)
+			kurtosisPackageUpdated[packageRepositoryLocator] = true
+			if err := crawler.store.UpsertPackage(ctx, packageRepositoryLocator, convertRepoContentToApi(kurtosisPackageContent)); err != nil {
+				logrus.Errorf("An error occurred updating the package '%s' in the indexer store. Stored package data"+
+					"might be out of date until next refresh.", packageRepositoryLocator)
+			}
+		}
+	}
+
+	logrus.Debugf("Finished updating currently stored packages. Going to search for potential new packages now")
+
+	// Then we search for potential new packages
+	allKurtosisPackageLocatorsFromSearch, err := searchForKurtosisPackageRepositories(ctx, githubClient)
+	if err != nil {
+		return 0, 0, 0, stacktrace.Propagate(err, "Error search for Kurtosis package repositories on Github")
+	}
+	for _, kurtosisPackageMetadata := range allKurtosisPackageLocatorsFromSearch {
+		packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
+		if _, found := kurtosisPackageUpdated[packageRepositoryLocator]; found {
+			// package was already stored prior to this crawling. Its content has been refreshed above. Skipping it here
+			continue
+		}
+
+		kurtosisPackageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
+		if err != nil {
+			return 0, 0, 0, stacktrace.Propagate(err, "An unexpected error occurred retrieving content for Kurtosis package repository '%s'",
+				packageRepositoryLocator)
+		}
+		if !ok {
+			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved. Does it contain a valid "+
 				"'%s' and '%s' files at the root of the repository?",
-				kurtosisPackageLocator.Repository.GetFullName(), kurtosisPackageLocator.RootPath,
-				kurtosisYamlFileName, starlarkMainDotStarFileName)
+				packageRepositoryLocator, kurtosisYamlFileName, starlarkMainDotStarFileName)
 			continue
 		}
 
 		kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)
-		if err = crawler.store.UpsertPackage(crawler.ctx, kurtosisPackageApi); err != nil {
+		if err = crawler.store.UpsertPackage(crawler.ctx, packageRepositoryLocator, kurtosisPackageApi); err != nil {
 			logrus.Errorf("An error occurred updating the package '%s' in the indexer store. Stored package data"+
-				"might be out of date until next refresh.", kurtosisPackageContent.Identifier)
+				"might be out of date until next refresh.", kurtosisPackageContent.Name)
 		}
-		logrus.Debugf("Added Kurtosis package at '%s/%s'",
-			kurtosisPackageLocator.Repository.GetFullName(), kurtosisPackageLocator.RootPath)
-		existingPackages[kurtosisPackageContent.Identifier] = true
-		repoUpdated += 1
+		kurtosisPackageAdded[packageRepositoryLocator] = true
+		logrus.Debugf("Added new Kurtosis package to the store: '%s'", packageRepositoryLocator)
 	}
-
-	// remove all packages from the store which don't exist anymore
-	storedPackages, err := crawler.store.GetKurtosisPackages(crawler.ctx)
-	if err != nil {
-		return repoUpdated, repoRemoved, stacktrace.Propagate(err, "Unable to retrieve all Kurtosis packages currently stored by the indexer")
-	}
-	for _, storedPackage := range storedPackages {
-		packageIdentifier := store.KurtosisPackageIdentifier(storedPackage.GetName())
-		if _, found := existingPackages[packageIdentifier]; !found {
-			repoRemoved += 1
-			logrus.Infof("Removing package '%s' from the store as it doesn't seem to exist anymore", packageIdentifier)
-			if err = crawler.store.DeletePackage(crawler.ctx, packageIdentifier); err != nil {
-				logrus.Errorf("Unable to remove package '%s' from the store. This package data will be outdated", packageIdentifier)
-				continue
-			}
-		}
-	}
-	return repoUpdated, repoRemoved, nil
+	return len(kurtosisPackageUpdated), len(kurtosisPackageAdded), len(kurtosisPackageRemoved), nil
 }
 
 func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *generated.KurtosisPackage {
@@ -197,18 +228,24 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		if !ok {
 			if arg.Type != nil {
 				logrus.Warnf("Argument type '%s' for argument '%s' in package '%s' could not be parsed to the new format",
-					arg.Type, arg.Name, kurtosisPackageContent.Identifier)
+					arg.Type, arg.Name, kurtosisPackageContent.Name)
 			}
 		}
 		convertedPackageArg = api_constructors.NewPackageArg(
 			arg.Name, arg.Description, arg.IsRequired, convertedPackageArgTypeV2Ptr)
 		kurtosisPackageArgsApi = append(kurtosisPackageArgsApi, convertedPackageArg)
 	}
+	packageRepository := api_constructors.NewPackageRepository(
+		githubUrl,
+		kurtosisPackageContent.RepositoryMetadata.Owner,
+		kurtosisPackageContent.RepositoryMetadata.Name,
+		kurtosisPackageContent.RepositoryMetadata.RootPath)
+
 	return api_constructors.NewKurtosisPackage(
-		string(kurtosisPackageContent.Identifier),
+		kurtosisPackageContent.Name,
 		kurtosisPackageContent.Description,
-		kurtosisPackageContent.Url,
-		kurtosisPackageContent.Stars,
+		packageRepository,
+		kurtosisPackageContent.RepositoryMetadata.Stars,
 		kurtosisPackageContent.EntrypointDescription,
 		kurtosisPackageContent.ReturnsDescription,
 		kurtosisPackageArgsApi...,
@@ -236,10 +273,10 @@ func convertArgumentType(argumentType *StarlarkArgumentType) (*generated.Package
 	return packageArgumentType, true
 }
 
-func getKurtosisPackageLocators(ctx context.Context, client *github.Client) ([]*KurtosisPackageLocator, error) {
+func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Client) ([]*PackageRepositoryMetadata, error) {
 	// Pagination logic taken from https://github.com/google/go-github/tree/master#pagination
 
-	var allKurtosisPackageLocator []*KurtosisPackageLocator
+	var allPackageRepositoryMetadatas []*PackageRepositoryMetadata
 	searchOpts := &github.SearchOptions{
 		Sort:      "stars",
 		Order:     "desc",
@@ -265,8 +302,31 @@ func getKurtosisPackageLocators(ctx context.Context, client *github.Client) ([]*
 					*searchResult.Path)
 				continue
 			}
-			newKurtosisPackageLocator := NewKurtosisPackageLocator(searchResult.Repository, rootPath, kurtosisYamlFileName)
-			allKurtosisPackageLocator = append(allKurtosisPackageLocator, newKurtosisPackageLocator)
+
+			// It's not clear what to use in the `GetContents` function called below, as the `owner` field. We would prefer to
+			// just pass in githubRepository.GetFullName() and that's it, but it doesn't work
+			// So, to parse the owner name, we try both the `Login` and `Name` field, taking the first one that is not empty.
+			// For repo owned by `kurtosis-tech` for example, it's the Login field that will be used, as the Name one is empty
+			// If this is too fragile, worst case we can regexp parse `githubRepository.GetFullName()`
+			repository := searchResult.Repository
+			var repoOwner string
+			if repository.GetOwner().GetLogin() != "" {
+				repoOwner = repository.GetOwner().GetLogin()
+			} else if repository.GetOwner().GetName() != "" {
+				repoOwner = repository.GetOwner().GetName()
+			} else {
+				logrus.Warnf("Search result '%s' was invalid b/c the Github repository has no owner",
+					repository.GetFullName())
+				continue
+			}
+
+			var numberOfStars uint64
+			if repository.GetStargazersCount() > 0 {
+				numberOfStars = uint64(repository.GetStargazersCount())
+			}
+
+			newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repoOwner, repository.GetName(), rootPath, kurtosisYamlFileName, numberOfStars)
+			allPackageRepositoryMetadatas = append(allPackageRepositoryMetadatas, newPackageRepositoryMetadata)
 		}
 
 		if rawResponse.NextPage == 0 {
@@ -274,77 +334,52 @@ func getKurtosisPackageLocators(ctx context.Context, client *github.Client) ([]*
 		}
 		searchOpts.Page = rawResponse.NextPage
 	}
-	return allKurtosisPackageLocator, nil
+	return allPackageRepositoryMetadatas, nil
 }
 
-func extractKurtosisPackageContent(ctx context.Context, client *github.Client, kurtosisPackageLocator *KurtosisPackageLocator) (*KurtosisPackageContent, bool, error) {
-	// It's not clear what to use in the `GetContents` function called below, as the `owner` field. We would prefer to
-	// just pass in githubRepository.GetFullName() and that's it, but it doesn't work
-	// So, to parse the owner name, we try both the `Login` and `Name` field, taking the first one that is not empty.
-	// For repo owned by `kurtosis-tech` for example, it's the Login field that will be used, as the Name one is empty
-	// If this is too fragile, worst case we can regexp parse `githubRepository.GetFullName()`
-	var repoOwner string
-	if kurtosisPackageLocator.Repository.GetOwner().GetLogin() != "" {
-		repoOwner = kurtosisPackageLocator.Repository.GetOwner().GetLogin()
-	} else if kurtosisPackageLocator.Repository.GetOwner().GetName() != "" {
-		repoOwner = kurtosisPackageLocator.Repository.GetOwner().GetName()
-	} else {
-		return nil, false, stacktrace.NewError("Repository does not have an owner and is not owned by any organization, "+
-			"this is unexpected:\n%v", kurtosisPackageLocator.Repository)
-	}
-	repoName := kurtosisPackageLocator.Repository.GetName()
+func extractKurtosisPackageContent(ctx context.Context, client *github.Client, packageRepositoryMetadata *PackageRepositoryMetadata) (*KurtosisPackageContent, bool, error) {
+	repositoryFullName := fmt.Sprintf("%s/%s", packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name)
+
 	repoGetContentOpts := &github.RepositoryContentGetOptions{
 		Ref: "",
 	}
 
-	kurtosisYamlFilePath := fmt.Sprintf("%s%s", kurtosisPackageLocator.RootPath, kurtosisPackageLocator.KurtosisYamlFileName)
-	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, repoOwner, repoName, kurtosisYamlFilePath, repoGetContentOpts)
+	kurtosisYamlFilePath := fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, packageRepositoryMetadata.KurtosisYamlFileName)
+	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisYamlFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
-		logrus.Debugf("No '%s' file in repo '%s'", kurtosisYamlFilePath, kurtosisPackageLocator.Repository.GetFullName())
+		logrus.Debugf("No '%s' file in repo '%s'", kurtosisYamlFilePath, repositoryFullName)
 		return nil, false, nil
 	} else if err != nil {
-		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s' - file '%s'", repoName, kurtosisYamlFilePath)
+		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s' - file '%s'", repositoryFullName, kurtosisYamlFilePath)
 	}
 	kurtosisPackageName, kurtosisPackageDescription, err := ParseKurtosisYaml(kurtosisYamlFileContentResult)
 	if err != nil {
 		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'. This Kurtosis package will not be indexed. "+
-			"Error was:\n%v", kurtosisYamlFilePath, kurtosisPackageLocator.Repository.GetFullName(), err.Error())
+			"Error was:\n%v", kurtosisYamlFilePath, repositoryFullName, err.Error())
 		return nil, false, nil
 	}
 
-	var kurtosisPackageUrl string
-	if kurtosisYamlFileContentResult.HTMLURL != nil {
-		kurtosisPackageUrl = strings.TrimSuffix(kurtosisYamlFileContentResult.GetHTMLURL(), kurtosisPackageLocator.KurtosisYamlFileName)
-	} else {
-		kurtosisPackageUrl = kurtosisPackageLocator.Repository.GetURL()
-	}
-
-	kurtosisMainDotStarFilePath := fmt.Sprintf("%s%s", kurtosisPackageLocator.RootPath, starlarkMainDotStarFileName)
-	starlarkMainDotStartContentResult, _, resp, err := client.Repositories.GetContents(ctx, repoOwner, repoName, kurtosisMainDotStarFilePath, repoGetContentOpts)
+	kurtosisMainDotStarFilePath := fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, starlarkMainDotStarFileName)
+	starlarkMainDotStartContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisMainDotStarFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
-		logrus.Debugf("No '%s' file in repo '%s'", kurtosisMainDotStarFilePath, kurtosisPackageLocator.Repository.GetFullName())
+		logrus.Debugf("No '%s' file in repo '%s'", kurtosisMainDotStarFilePath, repositoryFullName)
 		return nil, false, nil
 	} else if err != nil {
-		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s' - file '%s'", repoName, kurtosisMainDotStarFilePath)
+		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s' - file '%s'", repositoryFullName, kurtosisMainDotStarFilePath)
 	}
 	mainDotStarParsedContent, err := ParseStarlarkMainDoStar(starlarkMainDotStartContentResult)
 	if err != nil {
 		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'. This Kurtosis package will not be indexed. "+
-			"Error was:\n%v", kurtosisMainDotStarFilePath, kurtosisPackageLocator.Repository.GetFullName(), err.Error())
+			"Error was:\n%v", kurtosisMainDotStarFilePath, repositoryFullName, err.Error())
 		return nil, false, nil
 	}
 
-	var numberOfStars uint64
-	if kurtosisPackageLocator.Repository.StargazersCount != nil {
-		numberOfStars = uint64(*kurtosisPackageLocator.Repository.StargazersCount)
-	}
-	return &KurtosisPackageContent{
-		Identifier:            kurtosisPackageName,
-		Description:           kurtosisPackageDescription,
-		Url:                   kurtosisPackageUrl,
-		EntrypointDescription: mainDotStarParsedContent.Description,
-		ReturnsDescription:    mainDotStarParsedContent.ReturnDescription,
-		Stars:                 numberOfStars,
-		PackageArguments:      mainDotStarParsedContent.Arguments,
-	}, true, nil
+	return NewKurtosisPackageContent(
+		packageRepositoryMetadata,
+		kurtosisPackageName,
+		kurtosisPackageDescription,
+		mainDotStarParsedContent.Description,
+		mainDotStarParsedContent.ReturnDescription,
+		mainDotStarParsedContent.Arguments...,
+	), true, nil
 }

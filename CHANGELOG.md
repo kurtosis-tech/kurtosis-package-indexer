@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.0.9](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.8...0.0.9) (2023-09-21)
+
+
+### Features
+
+* Add ETCD as an option for the store ([#32](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/32)) ([557fb51](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/557fb51f9e97707471c284d07581a9db0f4866a6))
+* Filter out packages with invalid name in `kurtosis.yml` ([#37](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/37)) ([df53368](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/df53368d864b5811506f67634e0a5f7716e40633))
+* Service is automatically deployed to AWS on release ([#38](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/38)) ([93bf876](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/93bf87612a68d21d4dfb799f7e9f6b5edfcf1e22))
+
 ## [0.0.8](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.7...0.0.8) (2023-09-15)
 
 

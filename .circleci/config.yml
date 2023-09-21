@@ -1,5 +1,10 @@
 version: 2.1
 
+
+orbs:
+  aws-cli: circleci/aws-cli@4.0
+  aws-ecs: circleci/aws-ecs@4.0
+
 parameters:
   go-version:
     type: string
@@ -95,6 +100,22 @@ jobs:
           push_to_dockerhub=true 
           server/scripts/docker-image-builder.sh "${push_to_dockerhub}" "${dockerfile_filepath}" "${image_name_with_version}" "${image_name_to_publish_semver}" "${image_name_to_publish_latest}"
 
+  deploy_kurtosis_package_indexer_service:
+    executor: ubuntu_vm
+    steps:
+      - checkout
+
+      - aws-cli/setup:
+          aws_access_key_id: AWS_ACCESS_KEY_ID
+          aws_secret_access_key: AWS_SECRET_ACCESS_KEY
+
+      - aws-ecs/update_service:
+          cluster: kurtosis-cloud
+          family: kurtosis-package-indexer
+          service_name: kurtosis-package-indexer
+          force_new_deployment: true
+          skip_task_definition_registration: true
+
 workflows:
   build:
     jobs:
@@ -129,6 +150,16 @@ workflows:
           context:
             - docker-user
             - github-user
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^[0-9]+\.[0-9]+\.[0-9]+$/
+      - deploy_kurtosis_package_indexer_service:
+          context:
+            - aws-terraform-user
+          requires:
+            - publish_server_image
           filters:
             branches:
               ignore: /.*/

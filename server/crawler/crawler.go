@@ -203,9 +203,8 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubC
 				packageRepositoryLocator)
 		}
 		if !ok {
-			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved. Does it contain a valid "+
-				"'%s' and '%s' files at the root of the repository?",
-				packageRepositoryLocator, kurtosisYamlFileName, starlarkMainDotStarFileName)
+			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.",
+				packageRepositoryLocator)
 			continue
 		}
 
@@ -338,7 +337,7 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 }
 
 func extractKurtosisPackageContent(ctx context.Context, client *github.Client, packageRepositoryMetadata *PackageRepositoryMetadata) (*KurtosisPackageContent, bool, error) {
-	repositoryFullName := fmt.Sprintf("%s/%s", packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name)
+	repositoryFullName := fmt.Sprintf("%s/%s/%s", packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath)
 
 	repoGetContentOpts := &github.RepositoryContentGetOptions{
 		Ref: "",
@@ -356,6 +355,20 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, p
 	if err != nil {
 		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'. This Kurtosis package will not be indexed. "+
 			"Error was:\n%v", kurtosisYamlFilePath, repositoryFullName, err.Error())
+		return nil, false, nil
+	}
+
+	// we check that the name set in kurtosis.yml matches the location on Github. If not, we exclude it from the
+	// indexer b/c users won't be able to run it with `kurtosis run <PACKAGE_NAME>`
+	expectedPackageName := normalizeName(fmt.Sprintf("%s/%s/%s/%s",
+		githubUrl,
+		packageRepositoryMetadata.Owner,
+		packageRepositoryMetadata.Name,
+		packageRepositoryMetadata.RootPath,
+	))
+	if normalizeName(kurtosisPackageName) != expectedPackageName {
+		logrus.Warnf("The package '%s' is invalid because the name set in its '%s' doesn't match its Github URL (name set: '%s' - expected: '%s')."+
+			"This Kurtosis package will not be indexed.", repositoryFullName, kurtosisYamlFileName, kurtosisPackageName, expectedPackageName)
 		return nil, false, nil
 	}
 
@@ -382,4 +395,8 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, p
 		mainDotStarParsedContent.ReturnDescription,
 		mainDotStarParsedContent.Arguments...,
 	), true, nil
+}
+
+func normalizeName(name string) string {
+	return strings.ToLower(strings.Trim(name, " /"))
 }

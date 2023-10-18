@@ -14,7 +14,7 @@ The service simply runs a job periodically to search for all Kurtosis Packages c
 Github authentication
 ---------------------
 
-The searches ran on Github need to be authenticated. There're two ways Kurtosis Package Indexer will authenticate itself
+The searches run on Github need to be authenticated. There are two ways Kurtosis Package Indexer will authenticate itself
 on Github.
 Right now, the indexer first tries reading the `GITHUB_USER_TOKEN` environment variable and if it's empty, it falls back
 to the S3 bucket option.

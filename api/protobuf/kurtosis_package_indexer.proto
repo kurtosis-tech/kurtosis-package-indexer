@@ -4,6 +4,7 @@ package kurtosis_package_indexer;
 option go_package = "github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 service KurtosisPackageIndexer {
   rpc IsAvailable (google.protobuf.Empty) returns (google.protobuf.Empty) {};
@@ -11,7 +12,18 @@ service KurtosisPackageIndexer {
   rpc GetPackages(google.protobuf.Empty) returns (GetPackagesResponse) {};
 
   rpc Reindex(google.protobuf.Empty) returns (google.protobuf.Empty) {};
+
+  rpc ReadPackage(ReadPackageRequest) returns (ReadPackageResponse) {};
 }
+
+message ReadPackageRequest {
+  PackageRepository repository_metadata = 1;
+}
+
+message ReadPackageResponse {
+  optional KurtosisPackage package = 1;
+}
+
 
 message GetPackagesResponse {
   repeated KurtosisPackage packages = 1;
@@ -34,6 +46,13 @@ message KurtosisPackage {
   string returns_description = 7;
 
   PackageRepository repository_metadata = 8;
+
+  string parsing_result = 9;
+
+  google.protobuf.Timestamp parsing_time = 10;
+
+  string version = 11;
+
 }
 
 message PackageArg {

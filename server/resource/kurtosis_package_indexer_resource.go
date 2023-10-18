@@ -41,3 +41,15 @@ func (resource *KurtosisPackageIndexer) Reindex(_ context.Context, _ *emptypb.Em
 	}
 	return &emptypb.Empty{}, nil
 }
+
+func (resource *KurtosisPackageIndexer) ReadPackage(ctx context.Context, input *generated.ReadPackageRequest) (*generated.ReadPackageResponse, error) {
+	if input == nil {
+		return nil, stacktrace.NewError("an empty input was provided")
+	}
+	githubClient, err := crawler.CreateGithubClient(ctx)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred while creating the github client")
+	}
+	pack, err := crawler.ReadPackage(ctx, githubClient, input.GetRepositoryMetadata())
+	return api_constructors.NewReadPackageResponse(pack), nil
+}

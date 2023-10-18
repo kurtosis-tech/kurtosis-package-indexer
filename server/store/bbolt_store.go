@@ -5,6 +5,8 @@ import (
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"github.com/kurtosis-tech/stacktrace"
 	"go.etcd.io/bbolt"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -64,6 +66,9 @@ func (store *BboltStore) GetKurtosisPackages(_ context.Context) ([]*generated.Ku
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "An error occurred retrieving package from Bbolt database")
 	}
+	sort.SliceStable(packages, func(i, j int) bool {
+		return strings.ToLower(packages[i].GetUrl()) < strings.ToLower(packages[j].GetUrl())
+	})
 	return packages, nil
 }
 

@@ -5,6 +5,8 @@ import (
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"github.com/kurtosis-tech/stacktrace"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -51,7 +53,7 @@ func (store *EtcdBackedStore) Close() error {
 }
 
 func (store *EtcdBackedStore) GetKurtosisPackages(ctx context.Context) ([]*generated.KurtosisPackage, error) {
-	var kurtosisPackages []*generated.KurtosisPackage
+	var packages []*generated.KurtosisPackage
 	resp, err := store.client.Get(ctx, packageNameKeyPrefix, clientv3.WithPrefix())
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "Error retrieving values from etcd")
@@ -66,9 +68,12 @@ func (store *EtcdBackedStore) GetKurtosisPackages(ctx context.Context) ([]*gener
 		if err != nil {
 			return nil, stacktrace.Propagate(err, "An error occurred deserializing package info")
 		}
-		kurtosisPackages = append(kurtosisPackages, kurtosisPackage)
+		packages = append(packages, kurtosisPackage)
 	}
-	return kurtosisPackages, nil
+	sort.SliceStable(packages, func(i, j int) bool {
+		return strings.ToLower(packages[i].GetUrl()) < strings.ToLower(packages[j].GetUrl())
+	})
+	return packages, nil
 }
 
 func (store *EtcdBackedStore) UpsertPackage(ctx context.Context, kurtosisPackageLocator string, kurtosisPackage *generated.KurtosisPackage) error {

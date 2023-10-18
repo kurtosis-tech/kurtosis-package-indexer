@@ -20,7 +20,13 @@ type PackageRepositoryMetadata struct {
 	Stars uint64
 }
 
-func NewPackageRepositoryMetadata(owner string, name string, rootPath string, kurtosisYamlFileName string, stars uint64) *PackageRepositoryMetadata {
+func NewPackageRepositoryMetadata(
+	owner string,
+	name string,
+	rootPath string,
+	kurtosisYamlFileName string,
+	stars uint64,
+) *PackageRepositoryMetadata {
 	return &PackageRepositoryMetadata{
 		Owner:                owner,
 		Name:                 name,

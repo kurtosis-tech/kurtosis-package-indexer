@@ -51,5 +51,8 @@ func (resource *KurtosisPackageIndexer) ReadPackage(ctx context.Context, input *
 		return nil, stacktrace.Propagate(err, "an error occurred while creating the github client")
 	}
 	pack, err := crawler.ReadPackage(ctx, githubClient, input.GetRepositoryMetadata())
+	if err != nil {
+		return nil, err
+	}
 	return api_constructors.NewReadPackageResponse(pack), nil
 }

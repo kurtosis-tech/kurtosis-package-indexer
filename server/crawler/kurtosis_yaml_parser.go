@@ -6,19 +6,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func ParseKurtosisYaml(kurtosisYamlContent *github.RepositoryContent) (string, string, error) {
+func ParseKurtosisYaml(kurtosisYamlContent *github.RepositoryContent) (string, string, string, error) {
 	rawFileContent, err := kurtosisYamlContent.GetContent()
 	if err != nil {
-		return "", "", stacktrace.Propagate(err, "An error occurred getting the content of the '%s' file", kurtosisYamlFileName)
+		return "", "", "", stacktrace.Propagate(err, "An error occurred getting the content of the '%s' file", kurtosisYamlFileName)
 	}
 
 	fileContent := new(KurtosisYaml)
 	if err = yaml.Unmarshal([]byte(rawFileContent), fileContent); err != nil {
-		return "", "", stacktrace.Propagate(err, "An error occurred parsing YAML for '%s'", kurtosisYamlFileName)
+		return "", "", "", stacktrace.Propagate(err, "An error occurred parsing YAML for '%s'", kurtosisYamlFileName)
 	}
 
 	if fileContent.Name == "" {
-		return "", "", stacktrace.NewError("Kurtosis YAML file had an empty name. This is invalid.")
+		return "", "", "", stacktrace.NewError("Kurtosis YAML file had an empty name. This is invalid.")
 	}
-	return fileContent.Name, fileContent.Description, nil
+	return fileContent.Name, fileContent.Description, kurtosisYamlContent.GetSHA(), nil
 }

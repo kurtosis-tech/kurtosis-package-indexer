@@ -216,6 +216,9 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 		}
 
 		kurtosisPackageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
+		if err != nil {
+			logrus.Warnf("An error occurred parsing content for Kurtosis package repository '%s'", packageRepositoryLocator)
+		}
 		if !ok {
 			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.",
 				packageRepositoryLocator)
@@ -464,10 +467,6 @@ func extractKurtosisPackageContent(
 func getTimeInUTC() time.Time {
 	now := time.Now()
 	return now.UTC()
-}
-
-func getTimeString(actualTime time.Time) string {
-	return actualTime.Format(time.RFC1123)
 }
 
 func getTimeProtobufInUTC() *timestamppb.Timestamp {

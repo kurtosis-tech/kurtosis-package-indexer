@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.10](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.9...0.0.10) (2023-10-19)
+
+
+### Features
+
+* get package on demand ([#42](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/42)) ([8094c1d](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/8094c1d02a6b7dc2cc5b82658b7c540af9363e67))
+
 ## [0.0.9](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.8...0.0.9) (2023-09-21)
 
 

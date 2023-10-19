@@ -9,12 +9,14 @@ import (
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"strings"
 	"time"
 )
 
 const (
-	crawlFrequency = 5 * time.Minute
+	crawlFrequency      = 5 * time.Minute
+	crawlIntervalBuffer = 15 * time.Second
 
 	kurtosisYamlFileName        = "kurtosis.yml"
 	starlarkMainDotStarFileName = "main.star"
@@ -22,6 +24,8 @@ const (
 	githubPageSize = 100 // that's the maximum allowed by GitHub API
 
 	githubUrl = "github.com"
+
+	successfulParsingText = "Parsed package content successfully"
 )
 
 type GithubCrawler struct {
@@ -79,11 +83,14 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 		logrus.Errorf("Could not retrieve last crawl datetime from the store. This is not critical, crawling"+
 			"will just continue even though the last crawl might be recent. Error was:\n%s", err.Error())
 	}
-	if time.Since(lastCrawlDatetime) < crawlFrequency {
+
+	// Add a small buffer to avoid false positive when checking if the new crawl is sooner than the crawl frequency interval
+	lastCrawlDatetimeWithBuffer := lastCrawlDatetime.Add(-crawlIntervalBuffer)
+	if time.Since(lastCrawlDatetimeWithBuffer) < crawlFrequency {
 		logrus.Infof("Last crawling happened as '%v' ('%v' ago), which is more recent than the crawling frequency "+
 			"set to '%v', so crawling will be skipped. If the indexer is running with more than one node, it might be "+
 			"that another node did the crawling in between, and this is totally expected.",
-			lastCrawlDatetime, time.Since(lastCrawlDatetime), crawlFrequency)
+			lastCrawlDatetimeWithBuffer, time.Since(lastCrawlDatetimeWithBuffer), crawlFrequency)
 		return
 	}
 
@@ -109,20 +116,11 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 		}()
 	}
 
-	authenticatedHttpClient, err := AuthenticatedHttpClientFromEnvVar(ctx)
+	githubClient, err := CreateGithubClient(ctx)
 	if err != nil {
-		logrus.Warnf("Unable to build authenticated Github client from environment variable. It will now try "+
-			"from AWS S3 bucket. Error was:\n%v", err.Error())
-		authenticatedHttpClient, err = AuthenticatedHttpClientFromS3BucketContent(ctx)
-		if err != nil {
-			logrus.Warnf("Unable to build authenticated Github client from S3 bucket. Error was:\n%v", err.Error())
-			logrus.Errorf("Unable to build authenticated Github client. This is required so that"+
-				"the indexer can search Github to retrieve Kurtosis package content. Skipping indexing for now, will "+
-				"retry in %v", crawlFrequency)
-			return
-		}
+		logrus.Error("An error occurred while creating the github client. Aborting", err)
+		return
 	}
-	githubClient := github.NewClient(authenticatedHttpClient.Client)
 
 	logrus.Info("Crawling Github for Kurtosis packages")
 	packageUpdated, packageAdded, packageRemoved, err := crawler.crawlKurtosisPackages(ctx, githubClient)
@@ -138,7 +136,27 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 		time.Since(tickerTime), crawlSuccessful, packageUpdated, packageAdded, packageRemoved)
 }
 
-func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubClient *github.Client) (int, int, int, error) {
+func CreateGithubClient(ctx context.Context) (*github.Client, error) {
+	authenticatedHttpClient, err := AuthenticatedHttpClientFromEnvVar(ctx)
+	if err != nil {
+		logrus.Warnf("Unable to build authenticated Github client from environment variable. It will now try "+
+			"from AWS S3 bucket. Error was:\n%v", err.Error())
+		authenticatedHttpClient, err = AuthenticatedHttpClientFromS3BucketContent(ctx)
+		if err != nil {
+			logrus.Warnf("Unable to build authenticated Github client from S3 bucket. Error was:\n%v", err.Error())
+			return nil, stacktrace.NewError("Unable to build authenticated Github client. This is required so that"+
+				"the indexer can search Github to retrieve Kurtosis package content. Skipping indexing for now, will "+
+				"retry in %v", crawlFrequency)
+		}
+	}
+	githubClient := github.NewClient(authenticatedHttpClient.Client)
+	return githubClient, nil
+}
+
+func (crawler *GithubCrawler) crawlKurtosisPackages(
+	ctx context.Context,
+	githubClient *github.Client,
+) (int, int, int, error) {
 	kurtosisPackageUpdated := map[string]bool{}
 	kurtosisPackageRemoved := map[string]bool{}
 	kurtosisPackageAdded := map[string]bool{}
@@ -199,8 +217,7 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubC
 
 		kurtosisPackageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 		if err != nil {
-			return 0, 0, 0, stacktrace.Propagate(err, "An unexpected error occurred retrieving content for Kurtosis package repository '%s'",
-				packageRepositoryLocator)
+			logrus.Warnf("An error occurred parsing content for Kurtosis package repository '%s'", packageRepositoryLocator)
 		}
 		if !ok {
 			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.",
@@ -217,6 +234,34 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(ctx context.Context, githubC
 		logrus.Debugf("Added new Kurtosis package to the store: '%s'", packageRepositoryLocator)
 	}
 	return len(kurtosisPackageUpdated), len(kurtosisPackageAdded), len(kurtosisPackageRemoved), nil
+}
+
+func ReadPackage(
+	ctx context.Context,
+	githubClient *github.Client,
+	apiRepositoryMetadata *generated.PackageRepository,
+) (*generated.KurtosisPackage, error) {
+	kurtosisPackageMetadata := NewPackageRepositoryMetadata(
+		apiRepositoryMetadata.GetOwner(),
+		apiRepositoryMetadata.GetName(),
+		apiRepositoryMetadata.GetRootPath(),
+		kurtosisYamlFileName,
+		0, // We don't know (or care) what the star count is
+	)
+	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
+	kurtosisPackageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
+	if !ok {
+		parsingError := stacktrace.NewError(fmt.Sprintf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.", packageRepositoryLocator), err)
+		logrus.Warn(parsingError)
+		return nil, parsingError
+	}
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an unexpected error occurred retrieving content for Kurtosis package repository '%s'",
+			packageRepositoryLocator)
+	}
+
+	kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)
+	return kurtosisPackageApi, nil
 }
 
 func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *generated.KurtosisPackage {
@@ -238,7 +283,8 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		githubUrl,
 		kurtosisPackageContent.RepositoryMetadata.Owner,
 		kurtosisPackageContent.RepositoryMetadata.Name,
-		kurtosisPackageContent.RepositoryMetadata.RootPath)
+		kurtosisPackageContent.RepositoryMetadata.RootPath,
+	)
 
 	return api_constructors.NewKurtosisPackage(
 		kurtosisPackageContent.Name,
@@ -247,6 +293,9 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.RepositoryMetadata.Stars,
 		kurtosisPackageContent.EntrypointDescription,
 		kurtosisPackageContent.ReturnsDescription,
+		kurtosisPackageContent.ParsingResult,
+		kurtosisPackageContent.ParsingTime,
+		kurtosisPackageContent.Version,
 		kurtosisPackageArgsApi...,
 	)
 }
@@ -336,12 +385,18 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 	return allPackageRepositoryMetadatas, nil
 }
 
-func extractKurtosisPackageContent(ctx context.Context, client *github.Client, packageRepositoryMetadata *PackageRepositoryMetadata) (*KurtosisPackageContent, bool, error) {
+func extractKurtosisPackageContent(
+	ctx context.Context,
+	client *github.Client,
+	packageRepositoryMetadata *PackageRepositoryMetadata,
+) (*KurtosisPackageContent, bool, error) {
 	repositoryFullName := fmt.Sprintf("%s/%s/%s", packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath)
 
 	repoGetContentOpts := &github.RepositoryContentGetOptions{
 		Ref: "",
 	}
+
+	nowAsUTC := getTimeProtobufInUTC()
 
 	kurtosisYamlFilePath := fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, packageRepositoryMetadata.KurtosisYamlFileName)
 	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisYamlFilePath, repoGetContentOpts)
@@ -351,25 +406,34 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, p
 	} else if err != nil {
 		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s' - file '%s'", repositoryFullName, kurtosisYamlFilePath)
 	}
-	kurtosisPackageName, kurtosisPackageDescription, err := ParseKurtosisYaml(kurtosisYamlFileContentResult)
+	kurtosisPackageName, kurtosisPackageDescription, commitSHA, err := ParseKurtosisYaml(kurtosisYamlFileContentResult)
 	if err != nil {
-		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'. This Kurtosis package will not be indexed. "+
+		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'"+
 			"Error was:\n%v", kurtosisYamlFilePath, repositoryFullName, err.Error())
-		return nil, false, nil
+		return nil, false, err
 	}
 
 	// we check that the name set in kurtosis.yml matches the location on Github. If not, we exclude it from the
 	// indexer b/c users won't be able to run it with `kurtosis run <PACKAGE_NAME>`
-	expectedPackageName := normalizeName(fmt.Sprintf("%s/%s/%s/%s",
-		githubUrl,
-		packageRepositoryMetadata.Owner,
-		packageRepositoryMetadata.Name,
-		packageRepositoryMetadata.RootPath,
-	))
+	expectedPackageName := normalizeName(
+		fmt.Sprintf(
+			"%s/%s/%s/%s",
+			githubUrl,
+			packageRepositoryMetadata.Owner,
+			packageRepositoryMetadata.Name,
+			packageRepositoryMetadata.RootPath,
+		),
+	)
 	if normalizeName(kurtosisPackageName) != expectedPackageName {
-		logrus.Warnf("The package '%s' is invalid because the name set in its '%s' doesn't match its Github URL (name set: '%s' - expected: '%s')."+
-			"This Kurtosis package will not be indexed.", repositoryFullName, kurtosisYamlFileName, kurtosisPackageName, expectedPackageName)
-		return nil, false, nil
+		nameError := stacktrace.NewError(
+			"The package '%s' is invalid because the name set in its '%s' doesn't match its Github URL (name set: '%s' - expected: '%s').",
+			repositoryFullName,
+			kurtosisYamlFileName,
+			kurtosisPackageName,
+			expectedPackageName,
+		)
+		logrus.Warn("package name must match the repo name", nameError)
+		return nil, false, nameError
 	}
 
 	kurtosisMainDotStarFilePath := fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, starlarkMainDotStarFileName)
@@ -393,8 +457,20 @@ func extractKurtosisPackageContent(ctx context.Context, client *github.Client, p
 		kurtosisPackageDescription,
 		mainDotStarParsedContent.Description,
 		mainDotStarParsedContent.ReturnDescription,
+		successfulParsingText,
+		nowAsUTC,
+		commitSHA,
 		mainDotStarParsedContent.Arguments...,
 	), true, nil
+}
+
+func getTimeInUTC() time.Time {
+	now := time.Now()
+	return now.UTC()
+}
+
+func getTimeProtobufInUTC() *timestamppb.Timestamp {
+	return timestamppb.New(getTimeInUTC())
 }
 
 func normalizeName(name string) string {

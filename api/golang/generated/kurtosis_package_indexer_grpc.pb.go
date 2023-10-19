@@ -23,6 +23,7 @@ const (
 	KurtosisPackageIndexer_IsAvailable_FullMethodName = "/kurtosis_package_indexer.KurtosisPackageIndexer/IsAvailable"
 	KurtosisPackageIndexer_GetPackages_FullMethodName = "/kurtosis_package_indexer.KurtosisPackageIndexer/GetPackages"
 	KurtosisPackageIndexer_Reindex_FullMethodName     = "/kurtosis_package_indexer.KurtosisPackageIndexer/Reindex"
+	KurtosisPackageIndexer_ReadPackage_FullMethodName = "/kurtosis_package_indexer.KurtosisPackageIndexer/ReadPackage"
 )
 
 // KurtosisPackageIndexerClient is the client API for KurtosisPackageIndexer service.
@@ -32,6 +33,7 @@ type KurtosisPackageIndexerClient interface {
 	IsAvailable(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetPackages(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetPackagesResponse, error)
 	Reindex(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ReadPackage(ctx context.Context, in *ReadPackageRequest, opts ...grpc.CallOption) (*ReadPackageResponse, error)
 }
 
 type kurtosisPackageIndexerClient struct {
@@ -69,6 +71,15 @@ func (c *kurtosisPackageIndexerClient) Reindex(ctx context.Context, in *emptypb.
 	return out, nil
 }
 
+func (c *kurtosisPackageIndexerClient) ReadPackage(ctx context.Context, in *ReadPackageRequest, opts ...grpc.CallOption) (*ReadPackageResponse, error) {
+	out := new(ReadPackageResponse)
+	err := c.cc.Invoke(ctx, KurtosisPackageIndexer_ReadPackage_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KurtosisPackageIndexerServer is the server API for KurtosisPackageIndexer service.
 // All implementations should embed UnimplementedKurtosisPackageIndexerServer
 // for forward compatibility
@@ -76,6 +87,7 @@ type KurtosisPackageIndexerServer interface {
 	IsAvailable(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	GetPackages(context.Context, *emptypb.Empty) (*GetPackagesResponse, error)
 	Reindex(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	ReadPackage(context.Context, *ReadPackageRequest) (*ReadPackageResponse, error)
 }
 
 // UnimplementedKurtosisPackageIndexerServer should be embedded to have forward compatible implementations.
@@ -90,6 +102,9 @@ func (UnimplementedKurtosisPackageIndexerServer) GetPackages(context.Context, *e
 }
 func (UnimplementedKurtosisPackageIndexerServer) Reindex(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Reindex not implemented")
+}
+func (UnimplementedKurtosisPackageIndexerServer) ReadPackage(context.Context, *ReadPackageRequest) (*ReadPackageResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadPackage not implemented")
 }
 
 // UnsafeKurtosisPackageIndexerServer may be embedded to opt out of forward compatibility for this service.
@@ -157,6 +172,24 @@ func _KurtosisPackageIndexer_Reindex_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KurtosisPackageIndexer_ReadPackage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadPackageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KurtosisPackageIndexerServer).ReadPackage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KurtosisPackageIndexer_ReadPackage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KurtosisPackageIndexerServer).ReadPackage(ctx, req.(*ReadPackageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KurtosisPackageIndexer_ServiceDesc is the grpc.ServiceDesc for KurtosisPackageIndexer service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -175,6 +208,10 @@ var KurtosisPackageIndexer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Reindex",
 			Handler:    _KurtosisPackageIndexer_Reindex_Handler,
+		},
+		{
+			MethodName: "ReadPackage",
+			Handler:    _KurtosisPackageIndexer_ReadPackage_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

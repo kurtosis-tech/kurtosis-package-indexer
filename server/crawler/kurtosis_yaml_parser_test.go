@@ -15,7 +15,7 @@ func TestDecodeKurtosisYaml_Minimal(t *testing.T) {
 	content := &github.RepositoryContent{
 		Content: &contentStr,
 	}
-	parsedPackageName, parsedPackageDescription, err := ParseKurtosisYaml(content)
+	parsedPackageName, parsedPackageDescription, _, err := ParseKurtosisYaml(content)
 	require.NoError(t, err)
 	require.Equal(t, packageName, parsedPackageName)
 	require.Equal(t, "", parsedPackageDescription)
@@ -31,7 +31,7 @@ description: %q
 	content := &github.RepositoryContent{
 		Content: &contentStr,
 	}
-	parsedPackageName, parsedPackageDescription, err := ParseKurtosisYaml(content)
+	parsedPackageName, parsedPackageDescription, _, err := ParseKurtosisYaml(content)
 	require.NoError(t, err)
 	require.Equal(t, packageName, parsedPackageName)
 	require.Equal(t, packageDescription, parsedPackageDescription)
@@ -46,7 +46,7 @@ unknownField: hello world
 	content := &github.RepositoryContent{
 		Content: &contentStr,
 	}
-	parsedPackageName, parsedPackageDescription, err := ParseKurtosisYaml(content)
+	parsedPackageName, parsedPackageDescription, _, err := ParseKurtosisYaml(content)
 	require.NoError(t, err)
 	require.Equal(t, packageName, parsedPackageName)
 	require.Equal(t, "", parsedPackageDescription)
@@ -61,7 +61,7 @@ name: %q
 	content := &github.RepositoryContent{
 		Content: &contentStr,
 	}
-	parsedPackageName, parsedPackageDescription, err := ParseKurtosisYaml(content)
+	parsedPackageName, parsedPackageDescription, _, err := ParseKurtosisYaml(content)
 	require.NoError(t, err)
 	require.Equal(t, packageName, parsedPackageName)
 	require.Equal(t, "", parsedPackageDescription)

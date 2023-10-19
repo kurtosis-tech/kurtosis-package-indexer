@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -28,6 +30,9 @@ func (store *InMemoryStore) GetKurtosisPackages(_ context.Context) ([]*generated
 	for _, kurtosisPackage := range store.packages {
 		packages = append(packages, kurtosisPackage)
 	}
+	sort.SliceStable(packages, func(i, j int) bool {
+		return strings.ToLower(packages[i].GetUrl()) < strings.ToLower(packages[j].GetUrl())
+	})
 	return packages, nil
 }
 

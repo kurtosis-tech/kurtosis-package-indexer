@@ -491,7 +491,7 @@ func extractDockerComposePackageContent(
 	client *github.Client,
 	packageRepositoryMetadata *PackageRepositoryMetadata) (*KurtosisPackageContent, bool, error) {
 	//repositoryFullName := fmt.Sprintf("%s/%s/%s", packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath)
-	l
+
 	repoGetContentOpts := &github.RepositoryContentGetOptions{
 		Ref: "",
 	}

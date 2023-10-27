@@ -16,6 +16,9 @@ type PackageRepositoryMetadata struct {
 	// this might be useful if at some point we have packages using a variant such as `kurtosis.yaml`
 	KurtosisYamlFileName string
 
+	// SupportedDockerComposeYamlFileNames is a list of supported docker compose yaml file names.
+	SupportedDockerComposeYamlFileNames []string
+
 	// Stars is the number of stars of the repository hosting the Kurtosis package
 	Stars uint64
 }
@@ -25,14 +28,16 @@ func NewPackageRepositoryMetadata(
 	name string,
 	rootPath string,
 	kurtosisYamlFileName string,
+	supportedDockerComposeYamlFileNames []string,
 	stars uint64,
 ) *PackageRepositoryMetadata {
 	return &PackageRepositoryMetadata{
-		Owner:                owner,
-		Name:                 name,
-		RootPath:             rootPath,
-		KurtosisYamlFileName: kurtosisYamlFileName,
-		Stars:                stars,
+		Owner:                               owner,
+		Name:                                name,
+		RootPath:                            rootPath,
+		KurtosisYamlFileName:                kurtosisYamlFileName,
+		SupportedDockerComposeYamlFileNames: supportedDockerComposeYamlFileNames,
+		Stars:                               stars,
 	}
 }
 

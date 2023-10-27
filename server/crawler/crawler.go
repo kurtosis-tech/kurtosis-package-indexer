@@ -490,8 +490,8 @@ func extractDockerComposePackageContent(
 	ctx context.Context,
 	client *github.Client,
 	packageRepositoryMetadata *PackageRepositoryMetadata) (*KurtosisPackageContent, bool, error) {
-	repositoryFullName := fmt.Sprintf("%s/%s/%s", packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath)
-
+	//repositoryFullName := fmt.Sprintf("%s/%s/%s", packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath)
+	l
 	repoGetContentOpts := &github.RepositoryContentGetOptions{
 		Ref: "",
 	}
@@ -513,12 +513,12 @@ func extractDockerComposePackageContent(
 		return nil, false, nil
 	}
 
-	kurtosisPackageName, kurtosisPackageDescription, commitSHA, err := ParseDockerComposeYaml(dockerComposeYamlFileContentResult)
-	if err != nil {
-		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'"+
-			"Error was:\n%v", dockerComposeYamlFilePath, repositoryFullName, err.Error())
-		return nil, false, err
-	}
+	//kurtosisPackageName, kurtosisPackageDescription, commitSHA, err := ParseDockerComposeYaml(dockerComposeYamlFileContentResult)
+	//if err != nil {
+	//	logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'"+
+	//		"Error was:\n%v", dockerComposeYamlFilePath, repositoryFullName, err.Error())
+	//	return nil, false, err
+	//}
 
 	mainDotStarParsedContent := KurtosisMainDotStar{
 		Description:       "", // TODO: input description
@@ -527,13 +527,13 @@ func extractDockerComposePackageContent(
 
 	return NewKurtosisPackageContent(
 		packageRepositoryMetadata,
-		kurtosisPackageName,
-		kurtosisPackageDescription,
+		packageRepositoryMetadata.Name,
+		"",
 		mainDotStarParsedContent.Description,
 		mainDotStarParsedContent.ReturnDescription,
 		successfulParsingText,
 		nowAsUTC,
-		commitSHA,
+		"",
 		mainDotStarParsedContent.Arguments...,
 	), true, nil
 }

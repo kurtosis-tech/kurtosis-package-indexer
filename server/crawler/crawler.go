@@ -263,18 +263,14 @@ func ReadPackage(
 	var packageContent *KurtosisPackageContent
 	packageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 	if !ok {
-		parsingError := stacktrace.NewError(fmt.Sprintf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.", packageRepositoryLocator), err)
-		logrus.Warn(parsingError)
+		logrus.Debugf("Kurtosis package repository content at '%s' could not be retrieved as it was invalid.", packageRepositoryLocator)
 		logrus.Debugf("Unable to find a kurtosis package in the repository. Checking for a docker compose instead...")
 		packageContent, ok, err = extractDockerComposePackageContent(ctx, githubClient, kurtosisPackageMetadata)
 		if !ok {
-			parsingError := stacktrace.NewError(fmt.Sprintf("Docker Compose repository content '%s' could not be retrieved as it was invalid.", packageRepositoryLocator), err)
-			logrus.Warn(parsingError)
-			return nil, parsingError
+			return nil, stacktrace.NewError("Kurtosis package repository content at '%s' could not be retrieved as it was invalid.", packageRepositoryLocator)
 		}
 		if err != nil {
-			return nil, stacktrace.Propagate(err, "an unexpected error occurred retrieving content for the Docker Compose package repository '%s'",
-				packageRepositoryLocator)
+			return nil, stacktrace.Propagate(err, "an unexpected error occurred retrieving content for the Docker Compose package repository '%s'", packageRepositoryLocator)
 		}
 	}
 	if err != nil {

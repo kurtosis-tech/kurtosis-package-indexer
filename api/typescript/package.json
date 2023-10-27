@@ -17,10 +17,7 @@
     "url": "git+https://github.com/kurtosis-tech/kurtosis-package-indexer.git"
   },
   "keywords": [
-    "kurtosis",
-    "enclave manager",
-    "core",
-    "enclave-manager-sdk"
+    "kurtosis"
   ],
   "author": "Kurtosis Technologies Inc <support@kurtosistech.com> (https://www.kurtosistech.com/)",
   "license": "Apache-2.0",

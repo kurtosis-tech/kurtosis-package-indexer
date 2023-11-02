@@ -256,6 +256,8 @@ func ReadPackage(
 		apiRepositoryMetadata.GetName(),
 		apiRepositoryMetadata.GetRootPath(),
 		kurtosisYamlFileName,
+		// TODO(kevin): supportedDockerComposeYmlFilenames is a property of the *indexer* and its internal behaviour,
+		//  not of the repository; it shouldn't be set here in PackageRepositoryMetadata at all.
 		supportedDockerComposeYmlFilenames,
 		0, // We don't know (or care) what the star count is
 	)
@@ -263,6 +265,9 @@ func ReadPackage(
 	var packageContent *KurtosisPackageContent
 	packageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 	if !ok {
+		// TODO(kevin): it's weird to have this extra "ok" in addition to "err"; ideally, the Compose-parsing logic
+		//  should simply be weaved into extractKurtosisPackageContent (so that from the caller's perspective, extractKurtosisPackageContents
+		//  does $black_box_things and this function doesn't have to care about what those things are
 		parsingError := stacktrace.NewError(fmt.Sprintf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.", packageRepositoryLocator), err)
 		logrus.Warn(parsingError)
 		logrus.Debugf("Unable to find a kurtosis package in the repository. Checking for a docker compose instead...")
@@ -424,6 +429,7 @@ func extractKurtosisPackageContent(
 	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisYamlFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
 		logrus.Debugf("No '%s' file in repo '%s'", kurtosisYamlFilePath, repositoryFullName)
+		// TODO(kevin): this is where the logic for "they don't have a kurtosis.yml, but maybe they have a Compose" should live
 		return nil, false, nil
 	} else if err != nil {
 		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s' - file '%s'", repositoryFullName, kurtosisYamlFilePath)
@@ -523,11 +529,12 @@ func extractDockerComposePackageContent(
 	mainDotStarParsedContent := KurtosisMainDotStar{
 		Description:       "", // TODO: input description
 		ReturnDescription: "", // TODO: Input return description
-		Arguments:         nil}
+		Arguments:         []*StarlarkFunctionArgument{},
+	}
 
 	return NewKurtosisPackageContent(
 		packageRepositoryMetadata,
-		packageRepositoryMetadata.Name,
+		fmt.Sprintf("%v/%v/%v", githubUrl, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name),
 		"",
 		mainDotStarParsedContent.Description,
 		mainDotStarParsedContent.ReturnDescription,

@@ -534,6 +534,7 @@ func extractDockerComposePackageContent(
 
 	return NewKurtosisPackageContent(
 		packageRepositoryMetadata,
+		// TODO(kevin): missing subpath (if there is one); see the equivalent code up above
 		fmt.Sprintf("%v/%v/%v", githubUrl, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name),
 		"",
 		mainDotStarParsedContent.Description,

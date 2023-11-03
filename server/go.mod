@@ -11,10 +11,10 @@ require (
 	github.com/kurtosis-tech/kurtosis-package-indexer/api/golang v0.0.0-00010101000000-000000000000
 	github.com/kurtosis-tech/kurtosis/connect-server v0.0.0-20230825003324-75d481e0db8c
 	github.com/kurtosis-tech/stacktrace v0.0.0-20211028211901-1c67a77b5409
+	github.com/kurtosis-tech/starlark-lsp v0.0.0-20231103163737-8f660a80cb17
 	github.com/rs/cors v1.9.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
-	github.com/tilt-dev/starlark-lsp v0.0.0-20230210155543-84c13fe0ff94
 	go.etcd.io/bbolt v1.3.7
 	go.etcd.io/etcd/client/v3 v3.5.9
 	go.starlark.net v0.0.0-20230814145427-12f4cb8177e4
@@ -49,5 +49,3 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230803162519-f966b187b2e5 // indirect
 	google.golang.org/grpc v1.57.0 // indirect
 )
-
-replace github.com/tilt-dev/starlark-lsp => github.com/tedim52/starlark-lsp v0.0.0-20231103160954-0c62f1e3bf75

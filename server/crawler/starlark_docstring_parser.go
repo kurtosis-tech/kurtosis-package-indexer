@@ -1,7 +1,7 @@
 package crawler
 
 import (
-	"github.com/tilt-dev/starlark-lsp/pkg/docstring"
+	"github.com/kurtosis-tech/starlark-lsp/pkg/docstring"
 	"regexp"
 	"strings"
 )

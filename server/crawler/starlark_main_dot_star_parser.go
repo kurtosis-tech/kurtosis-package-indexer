@@ -7,6 +7,7 @@ import (
 	"go.starlark.net/syntax"
 	"reflect"
 	"regexp"
+	"strings"
 )
 
 const (
@@ -20,7 +21,7 @@ var (
 	argTypeInCommentRegexpMatchNum = 2
 )
 
-func ParseStarlarkMainDoStar(kurtosisYamlContent *github.RepositoryContent) (*KurtosisMainDotStar, error) {
+func ParseStarlarkMainDotStar(kurtosisYamlContent *github.RepositoryContent) (*KurtosisMainDotStar, error) {
 	rawFileContent, err := kurtosisYamlContent.GetContent()
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "An error occurred getting the content of the '%s' file", kurtosisYamlFileName)
@@ -111,13 +112,13 @@ func parseDefaultValue(rawDefaultValue syntax.Expr) *string {
 	switch typedDefaultValue := rawDefaultValue.(type) {
 	case *syntax.Ident: // True and False are Ident
 		if typedDefaultValue.Name == starlarkTrueValue || typedDefaultValue.Name == starlarkFalseValue {
-			parsedDefaultValue = typedDefaultValue.Name
+			parsedDefaultValue = strings.ReplaceAll(typedDefaultValue.Name, `"`, "") // strip quotes
 			return &parsedDefaultValue
 		} else {
 			return nil
 		}
 	case *syntax.Literal: // string and int are Literals
-		parsedDefaultValue = typedDefaultValue.Raw
+		parsedDefaultValue = strings.ReplaceAll(typedDefaultValue.Raw, `"`, "") // strip quotes
 		return &parsedDefaultValue
 	default: // rawDefaultValue is not a primitive or supported yet
 		// TODO: add support for dict and list default values
@@ -207,7 +208,7 @@ func reconcileRunFunctionArgumentWithDocstring(runFunctionArguments []*StarlarkF
 			Description:  "",
 			Type:         argument.Type,
 			IsRequired:   argument.IsRequired,
-			DefaultValue: nil,
+			DefaultValue: argument.DefaultValue,
 		}
 		if argumentFromDocstring, ok := indexedArgumentsFromDocstring[argument.Name]; ok {
 			assembledArgument.Description = argumentFromDocstring.Description

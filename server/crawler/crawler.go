@@ -276,7 +276,7 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 			}
 		}
 		convertedPackageArg = api_constructors.NewPackageArg(
-			arg.Name, arg.Description, arg.IsRequired, convertedPackageArgTypeV2Ptr)
+			arg.Name, arg.Description, arg.IsRequired, convertedPackageArgTypeV2Ptr, arg.DefaultValue)
 		kurtosisPackageArgsApi = append(kurtosisPackageArgsApi, convertedPackageArg)
 	}
 	packageRepository := api_constructors.NewPackageRepository(

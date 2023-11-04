@@ -13,6 +13,9 @@ type StarlarkFunctionArgument struct {
 	Description string
 	Type        *StarlarkArgumentType
 	IsRequired  bool
+
+	// raw string of the default value raw if one exists, otherwise nil
+	DefaultValue *string
 }
 
 type StarlarkArgumentType struct {

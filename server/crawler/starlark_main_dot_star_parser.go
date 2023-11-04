@@ -10,7 +10,9 @@ import (
 )
 
 const (
-	mainFunctionName = "run"
+	mainFunctionName   = "run"
+	starlarkTrueValue  = "True"
+	starlarkFalseValue = "False"
 )
 
 var (
@@ -78,24 +80,48 @@ func parseExpr(rawArg syntax.Expr, extractedTypeFromComment *StarlarkArgumentTyp
 	switch typedArg := rawArg.(type) {
 	case *syntax.Ident:
 		return &StarlarkFunctionArgument{
-			Name:        typedArg.Name,
-			Description: "",
-			Type:        extractedTypeFromComment,
-			IsRequired:  true,
+			Name:         typedArg.Name,
+			Description:  "",
+			Type:         extractedTypeFromComment,
+			IsRequired:   true,
+			DefaultValue: nil,
 		}, nil
 	case *syntax.BinaryExpr:
-		parsedArgument, err := parseExpr(typedArg.X, extractedTypeFromComment)
+		parsedArgument, err := parseExpr(typedArg.X, extractedTypeFromComment) // X, left side of binary expr, is the arg name
 		if err != nil {
 			return nil, stacktrace.Propagate(err, "Unable to parse Starlark function argument: %v", typedArg)
 		}
+		parsedDefaultValue := parseDefaultValue(typedArg.Y) // Y, right side of binary expr, is the default value
 		return &StarlarkFunctionArgument{
-			Name:        parsedArgument.Name,
-			Description: "",
-			Type:        extractedTypeFromComment,
-			IsRequired:  false,
+			Name:         parsedArgument.Name,
+			Description:  "",
+			Type:         extractedTypeFromComment,
+			IsRequired:   false,
+			DefaultValue: parsedDefaultValue,
 		}, nil
 	default:
-		return nil, stacktrace.NewError("Type of function parameter no handled: %v", reflect.TypeOf(rawArg))
+		return nil, stacktrace.NewError("Type of function parameter not handled: %v", reflect.TypeOf(rawArg))
+	}
+}
+
+// Returns pointer to raw string of the default value if [rawDefaultValue] is a bool, int, or string
+// Returns nil otherwise
+func parseDefaultValue(rawDefaultValue syntax.Expr) *string {
+	var parsedDefaultValue string
+	switch typedDefaultValue := rawDefaultValue.(type) {
+	case *syntax.Ident: // True and False are Ident
+		if typedDefaultValue.Name == starlarkTrueValue || typedDefaultValue.Name == starlarkFalseValue {
+			parsedDefaultValue = typedDefaultValue.Name
+			return &parsedDefaultValue
+		} else {
+			return nil
+		}
+	case *syntax.Literal: // string and int are Literals
+		parsedDefaultValue = typedDefaultValue.Raw
+		return &parsedDefaultValue
+	default: // rawDefaultValue is not a primitive or supported yet
+		// TODO: add support for dict and list default values
+		return nil
 	}
 }
 
@@ -177,10 +203,11 @@ func reconcileRunFunctionArgumentWithDocstring(runFunctionArguments []*StarlarkF
 	var packageArguments []*StarlarkFunctionArgument
 	for _, argument := range runFunctionArguments {
 		assembledArgument := &StarlarkFunctionArgument{
-			Name:        argument.Name,
-			Description: "",
-			Type:        argument.Type,
-			IsRequired:  argument.IsRequired,
+			Name:         argument.Name,
+			Description:  "",
+			Type:         argument.Type,
+			IsRequired:   argument.IsRequired,
+			DefaultValue: nil,
 		}
 		if argumentFromDocstring, ok := indexedArgumentsFromDocstring[argument.Name]; ok {
 			assembledArgument.Description = argumentFromDocstring.Description

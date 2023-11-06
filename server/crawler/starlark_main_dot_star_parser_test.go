@@ -47,7 +47,7 @@ var (
 	}
 )
 
-func TestParseStarlarkMainDoStar_Minimal(t *testing.T) {
+func TestParseStarlarkMainDotStar_Minimal(t *testing.T) {
 	contentStr := `
 def run(plan, args):
 	plan.print("Hello World")
@@ -57,7 +57,7 @@ def run(plan, args):
 		Content: &contentStr,
 	}
 
-	result, err := ParseStarlarkMainDoStar(content)
+	result, err := ParseStarlarkMainDotStar(content)
 	require.NoError(t, err)
 
 	require.Len(t, result.Arguments, 2)
@@ -73,7 +73,7 @@ def run(plan, args):
 	require.Nil(t, result.Arguments[1].Type)
 }
 
-func TestParseStarlarkMainDoStar_ArgsIsOptional(t *testing.T) {
+func TestParseStarlarkMainDotStar_ArgsIsOptional(t *testing.T) {
 	contentStr := `
 def run(plan, args={}):
 	plan.print("Hello World")
@@ -83,7 +83,7 @@ def run(plan, args={}):
 		Content: &contentStr,
 	}
 
-	result, err := ParseStarlarkMainDoStar(content)
+	result, err := ParseStarlarkMainDotStar(content)
 	require.NoError(t, err)
 
 	require.Len(t, result.Arguments, 2)
@@ -99,7 +99,7 @@ def run(plan, args={}):
 	require.Nil(t, result.Arguments[1].Type)
 }
 
-func TestParseStarlarkMainDoStar_WithType(t *testing.T) {
+func TestParseStarlarkMainDotStar_WithType(t *testing.T) {
 	contentStr := `
 def run(
 		plan,
@@ -129,7 +129,7 @@ def run(
 		Content: &contentStr,
 	}
 
-	result, err := ParseStarlarkMainDoStar(content)
+	result, err := ParseStarlarkMainDotStar(content)
 	require.NoError(t, err)
 
 	require.Len(t, result.Arguments, 7)
@@ -170,7 +170,7 @@ def run(
 	require.Equal(t, &jsonType, result.Arguments[6].Type)
 }
 
-func TestParseStarlarkMainDoStar_WithImports(t *testing.T) {
+func TestParseStarlarkMainDotStar_WithImports(t *testing.T) {
 	contentStr := `
 mongodb = import_module("github.com/kurtosis-tech/mongodb-package/main.star")
 
@@ -182,7 +182,7 @@ def run(plan, args):
 		Content: &contentStr,
 	}
 
-	result, err := ParseStarlarkMainDoStar(content)
+	result, err := ParseStarlarkMainDotStar(content)
 	require.NoError(t, err)
 
 	require.Len(t, result.Arguments, 2)
@@ -194,4 +194,68 @@ def run(plan, args):
 	require.Equal(t, "args", result.Arguments[1].Name)
 	require.True(t, result.Arguments[1].IsRequired)
 	require.Nil(t, result.Arguments[1].Type)
+}
+
+func TestParseStarlarkMainDotStarParsesDefaultValues(t *testing.T) {
+	contentStr := `
+def run(
+    plan, 
+	name="service",
+    image="swan/engine:1.1.0",
+    port=2379,
+	restart=True,
+	min_cpu=5.5,
+	):
+	plan.print("Hello World")
+`
+	// nolint: exhaustruct
+	content := &github.RepositoryContent{
+		Content: &contentStr,
+	}
+
+	result, err := ParseStarlarkMainDotStar(content)
+	require.NoError(t, err)
+
+	require.Len(t, result.Arguments, 6)
+
+	require.Equal(t, "plan", result.Arguments[0].Name)
+	require.True(t, result.Arguments[0].IsRequired)
+	require.Equal(t, "", result.Arguments[0].Description)
+	require.Nil(t, result.Arguments[0].Type)
+	require.Nil(t, result.Arguments[0].DefaultValue)
+
+	require.Equal(t, "name", result.Arguments[1].Name)
+	require.False(t, result.Arguments[1].IsRequired)
+	require.Equal(t, "", result.Arguments[1].Description)
+	require.Nil(t, result.Arguments[1].Type)
+	require.NotNil(t, result.Arguments[1].DefaultValue)
+	require.Equal(t, "service", *result.Arguments[1].DefaultValue)
+
+	require.Equal(t, "image", result.Arguments[2].Name)
+	require.False(t, result.Arguments[2].IsRequired)
+	require.Equal(t, "", result.Arguments[2].Description)
+	require.Nil(t, result.Arguments[2].Type)
+	require.NotNil(t, result.Arguments[2].DefaultValue)
+	require.Equal(t, "swan/engine:1.1.0", *result.Arguments[2].DefaultValue)
+
+	require.Equal(t, "port", result.Arguments[3].Name)
+	require.False(t, result.Arguments[3].IsRequired)
+	require.Equal(t, "", result.Arguments[3].Description)
+	require.Nil(t, result.Arguments[3].Type)
+	require.NotNil(t, result.Arguments[3].DefaultValue)
+	require.Equal(t, "2379", *result.Arguments[3].DefaultValue)
+
+	require.Equal(t, "restart", result.Arguments[4].Name)
+	require.False(t, result.Arguments[4].IsRequired)
+	require.Equal(t, "", result.Arguments[4].Description)
+	require.Nil(t, result.Arguments[4].Type)
+	require.NotNil(t, result.Arguments[4].DefaultValue)
+	require.Equal(t, "True", *result.Arguments[4].DefaultValue)
+
+	require.Equal(t, "min_cpu", result.Arguments[5].Name)
+	require.False(t, result.Arguments[5].IsRequired)
+	require.Equal(t, "", result.Arguments[5].Description)
+	require.Nil(t, result.Arguments[5].Type)
+	require.NotNil(t, result.Arguments[5].DefaultValue)
+	require.Equal(t, "5.5", *result.Arguments[5].DefaultValue)
 }

@@ -28,10 +28,11 @@ func ParseRunFunctionDocstring(rawDocstring string) (*KurtosisMainDotStar, error
 
 		if argName != "" {
 			arguments = append(arguments, &StarlarkFunctionArgument{
-				Name:        argName,
-				Description: arg.Desc,
-				Type:        argType,
-				IsRequired:  false,
+				Name:         argName,
+				Description:  arg.Desc,
+				Type:         argType,
+				IsRequired:   false,
+				DefaultValue: nil,
 			})
 		}
 	}

@@ -63,6 +63,8 @@ message PackageArg {
   string description = 4;
 
   PackageArgumentType typeV2 = 5;
+
+  optional string defaultValue = 6;
 }
 
 enum ArgumentValueType {

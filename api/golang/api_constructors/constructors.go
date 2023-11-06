@@ -40,12 +40,13 @@ func NewKurtosisPackage(
 	}
 }
 
-func NewPackageArg(name string, description string, isRequired bool, argType *generated.PackageArgumentType) *generated.PackageArg {
+func NewPackageArg(name string, description string, isRequired bool, argType *generated.PackageArgumentType, defaultValue *string) *generated.PackageArg {
 	return &generated.PackageArg{
-		Name:        name,
-		Description: description,
-		IsRequired:  isRequired,
-		TypeV2:      argType,
+		Name:         name,
+		Description:  description,
+		IsRequired:   isRequired,
+		TypeV2:       argType,
+		DefaultValue: defaultValue,
 	}
 }
 

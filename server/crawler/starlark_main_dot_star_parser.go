@@ -7,10 +7,13 @@ import (
 	"go.starlark.net/syntax"
 	"reflect"
 	"regexp"
+	"strings"
 )
 
 const (
-	mainFunctionName = "run"
+	mainFunctionName   = "run"
+	starlarkTrueValue  = "True"
+	starlarkFalseValue = "False"
 )
 
 var (
@@ -18,7 +21,7 @@ var (
 	argTypeInCommentRegexpMatchNum = 2
 )
 
-func ParseStarlarkMainDoStar(kurtosisYamlContent *github.RepositoryContent) (*KurtosisMainDotStar, error) {
+func ParseStarlarkMainDotStar(kurtosisYamlContent *github.RepositoryContent) (*KurtosisMainDotStar, error) {
 	rawFileContent, err := kurtosisYamlContent.GetContent()
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "An error occurred getting the content of the '%s' file", kurtosisYamlFileName)
@@ -78,24 +81,49 @@ func parseExpr(rawArg syntax.Expr, extractedTypeFromComment *StarlarkArgumentTyp
 	switch typedArg := rawArg.(type) {
 	case *syntax.Ident:
 		return &StarlarkFunctionArgument{
-			Name:        typedArg.Name,
-			Description: "",
-			Type:        extractedTypeFromComment,
-			IsRequired:  true,
+			Name:         typedArg.Name,
+			Description:  "",
+			Type:         extractedTypeFromComment,
+			IsRequired:   true,
+			DefaultValue: nil,
 		}, nil
 	case *syntax.BinaryExpr:
-		parsedArgument, err := parseExpr(typedArg.X, extractedTypeFromComment)
+		parsedArgument, err := parseExpr(typedArg.X, extractedTypeFromComment) // X, left side of binary expr, is the arg name
 		if err != nil {
 			return nil, stacktrace.Propagate(err, "Unable to parse Starlark function argument: %v", typedArg)
 		}
+		parsedDefaultValue := parseDefaultValue(typedArg.Y) // Y, right side of binary expr, is the default value
 		return &StarlarkFunctionArgument{
-			Name:        parsedArgument.Name,
-			Description: "",
-			Type:        extractedTypeFromComment,
-			IsRequired:  false,
+			Name:         parsedArgument.Name,
+			Description:  "",
+			Type:         extractedTypeFromComment,
+			IsRequired:   false,
+			DefaultValue: parsedDefaultValue,
 		}, nil
 	default:
-		return nil, stacktrace.NewError("Type of function parameter no handled: %v", reflect.TypeOf(rawArg))
+		return nil, stacktrace.NewError("Type of function parameter not handled: %v", reflect.TypeOf(rawArg))
+	}
+}
+
+// Returns pointer to raw string of the default value if [rawDefaultValue] is a bool, int, or string
+// Returns nil otherwise
+func parseDefaultValue(rawDefaultValue syntax.Expr) *string {
+	var parsedDefaultValue string
+	switch typedDefaultValue := rawDefaultValue.(type) {
+	case *syntax.Ident: // True and False are Ident
+		if typedDefaultValue.Name == starlarkTrueValue || typedDefaultValue.Name == starlarkFalseValue {
+			parsedDefaultValue = strings.ReplaceAll(typedDefaultValue.Name, `"`, "") // strip quotes
+			return &parsedDefaultValue
+		} else {
+			return nil
+		}
+	case *syntax.Literal: // string and int are Literals
+		parsedDefaultValue = strings.ReplaceAll(typedDefaultValue.Raw, `"`, "") // strip quotes
+		return &parsedDefaultValue
+	default: // rawDefaultValue is not a primitive or supported yet
+		// TODO: add support for dict and list default values
+		logrus.Warnf("Attempted to parse a default value that's not supported. Returning no default value.")
+		return nil
 	}
 }
 
@@ -177,10 +205,11 @@ func reconcileRunFunctionArgumentWithDocstring(runFunctionArguments []*StarlarkF
 	var packageArguments []*StarlarkFunctionArgument
 	for _, argument := range runFunctionArguments {
 		assembledArgument := &StarlarkFunctionArgument{
-			Name:        argument.Name,
-			Description: "",
-			Type:        argument.Type,
-			IsRequired:  argument.IsRequired,
+			Name:         argument.Name,
+			Description:  "",
+			Type:         argument.Type,
+			IsRequired:   argument.IsRequired,
+			DefaultValue: argument.DefaultValue,
 		}
 		if argumentFromDocstring, ok := indexedArgumentsFromDocstring[argument.Name]; ok {
 			assembledArgument.Description = argumentFromDocstring.Description

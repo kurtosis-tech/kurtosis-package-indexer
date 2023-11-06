@@ -204,6 +204,7 @@ def run(
     image="swan/engine:1.1.0",
     port=2379,
 	restart=True,
+	min_cpu=5.5,
 	):
 	plan.print("Hello World")
 `
@@ -215,7 +216,7 @@ def run(
 	result, err := ParseStarlarkMainDotStar(content)
 	require.NoError(t, err)
 
-	require.Len(t, result.Arguments, 5)
+	require.Len(t, result.Arguments, 6)
 
 	require.Equal(t, "plan", result.Arguments[0].Name)
 	require.True(t, result.Arguments[0].IsRequired)
@@ -250,4 +251,11 @@ def run(
 	require.Nil(t, result.Arguments[4].Type)
 	require.NotNil(t, result.Arguments[4].DefaultValue)
 	require.Equal(t, "True", *result.Arguments[4].DefaultValue)
+
+	require.Equal(t, "min_cpu", result.Arguments[5].Name)
+	require.False(t, result.Arguments[5].IsRequired)
+	require.Equal(t, "", result.Arguments[5].Description)
+	require.Nil(t, result.Arguments[5].Type)
+	require.NotNil(t, result.Arguments[5].DefaultValue)
+	require.Equal(t, "5.5", *result.Arguments[5].DefaultValue)
 }

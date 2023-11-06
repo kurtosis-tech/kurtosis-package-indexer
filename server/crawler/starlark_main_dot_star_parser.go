@@ -122,6 +122,7 @@ func parseDefaultValue(rawDefaultValue syntax.Expr) *string {
 		return &parsedDefaultValue
 	default: // rawDefaultValue is not a primitive or supported yet
 		// TODO: add support for dict and list default values
+		logrus.Warnf("Attempted to parse a default value that's not supported. Returning no default value.")
 		return nil
 	}
 }

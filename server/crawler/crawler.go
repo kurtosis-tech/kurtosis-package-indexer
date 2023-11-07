@@ -177,14 +177,12 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 		)
 		packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 		logrus.Debugf("Trying to update content of package '%s'", packageRepositoryLocator) // TODO: remove log line
-		kurtosisPackageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
+		kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 		if err != nil {
-			return 0, 0, 0, stacktrace.Propagate(err, "An unexpected error occurred retrieving content for Kurtosis package repository '%s'",
-				packageRepositoryLocator)
+			return 0, 0, 0, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
 		}
-		if !ok {
-			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved. It will be "+
-				"removed from the store", packageRepositoryLocator)
+		if !packageFound {
+			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved. It will be removed from the store", packageRepositoryLocator)
 			kurtosisPackageRemoved[packageRepositoryLocator] = true
 			if err := crawler.store.DeletePackage(ctx, packageRepositoryLocator); err != nil {
 				logrus.Warnf("An error occurred removing package '%s' from repository '%s' from the store. It will remain but the "+
@@ -215,13 +213,12 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 			continue
 		}
 
-		kurtosisPackageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
+		kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 		if err != nil {
-			logrus.Warnf("An error occurred parsing content for Kurtosis package repository '%s'", packageRepositoryLocator)
+			logrus.Warnf("An error occurred extractingi content for Kurtosis package at '%s'", packageRepositoryLocator)
 		}
-		if !ok {
-			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.",
-				packageRepositoryLocator)
+		if !packageFound {
+			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.", packageRepositoryLocator)
 			continue
 		}
 
@@ -249,11 +246,11 @@ func ReadPackage(
 		0, // We don't know (or care) what the star count is
 	)
 	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
-	kurtosisPackageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
+	kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
 	}
-	if !ok {
+	if !packageFound {
 		noPackageErr := stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageRepositoryLocator, kurtosisYamlFileName, starlarkMainDotStarFileName)
 		logrus.Warn(noPackageErr)
 		return nil, noPackageErr
@@ -413,7 +410,7 @@ func extractKurtosisPackageContent(
 	if err != nil {
 		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'"+
 			"Error was:\n%v", kurtosisYamlFilePath, repositoryFullName, err.Error())
-		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the kurtosis.yaml file.")
+		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", kurtosisYamlFileName)
 	}
 
 	// we check that the name set in kurtosis.yml matches the location on Github. If not, we exclude it from the
@@ -452,7 +449,7 @@ func extractKurtosisPackageContent(
 	if err != nil {
 		logrus.Warnf("An error occurred parsing '%s' star file in repository '%s'. This Kurtosis package will not be indexed. "+
 			"Error was:\n%v", kurtosisMainDotStarFilePath, repositoryFullName, err.Error())
-		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the main.star file.")
+		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", starlarkMainDotStarFileName)
 	}
 
 	return NewKurtosisPackageContent(

@@ -251,9 +251,8 @@ func ReadPackage(
 		return nil, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
 	}
 	if !packageFound {
-		noPackageErr := stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageRepositoryLocator, kurtosisYamlFileName, starlarkMainDotStarFileName)
-		logrus.Warn(noPackageErr)
-		return nil, noPackageErr
+		logrus.Warn("No Kurtosis package found.") // don't want to log provided package repository locator bc it's a security risk (eg. malitious data)
+		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageRepositoryLocator, kurtosisYamlFileName, starlarkMainDotStarFileName)
 	}
 
 	kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)

@@ -215,7 +215,7 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 
 		kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 		if err != nil {
-			logrus.Warnf("An error occurred extractingi content for Kurtosis package at '%s'", packageRepositoryLocator)
+			logrus.Warnf("An error occurred extracting content for Kurtosis package at '%s'", packageRepositoryLocator)
 		}
 		if !packageFound {
 			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.", packageRepositoryLocator)
@@ -408,7 +408,7 @@ func extractKurtosisPackageContent(
 	}
 	kurtosisPackageName, kurtosisPackageDescription, commitSHA, err := ParseKurtosisYaml(kurtosisYamlFileContentResult)
 	if err != nil {
-		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'"+
+		logrus.Warnf("An error occurred parsing '%s' file in repository '%s'"+
 			"Error was:\n%v", kurtosisYamlFilePath, repositoryFullName, err.Error())
 		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", kurtosisYamlFileName)
 	}
@@ -447,7 +447,7 @@ func extractKurtosisPackageContent(
 	}
 	mainDotStarParsedContent, err := ParseStarlarkMainDotStar(starlarkMainDotStartContentResult)
 	if err != nil {
-		logrus.Warnf("An error occurred parsing '%s' star file in repository '%s'. This Kurtosis package will not be indexed. "+
+		logrus.Warnf("An error occurred parsing '%s' file in repository '%s'. This Kurtosis package will not be indexed. "+
 			"Error was:\n%v", kurtosisMainDotStarFilePath, repositoryFullName, err.Error())
 		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", starlarkMainDotStarFileName)
 	}

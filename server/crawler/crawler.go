@@ -254,7 +254,7 @@ func ReadPackage(
 		return nil, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
 	}
 	if !ok {
-		noPackageErr := stacktrace.NewError(fmt.Sprintf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.", packageRepositoryLocator))
+		noPackageErr := stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageRepositoryLocator, kurtosisYamlFileName, starlarkMainDotStarFileName)
 		logrus.Warn(noPackageErr)
 		return nil, noPackageErr
 	}
@@ -384,6 +384,8 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 	return allPackageRepositoryMetadatas, nil
 }
 
+// If the package doesn't exist, returns an empty package content, false, and empty error
+// If package exists, but error occurred while extracting package content returns empty package content, false, with an error
 func extractKurtosisPackageContent(
 	ctx context.Context,
 	client *github.Client,
@@ -403,7 +405,7 @@ func extractKurtosisPackageContent(
 	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisYamlFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
 		logrus.Debugf("No '%s' file in repo '%s'", kurtosisYamlFilePath, repositoryFullName)
-		return nil, false, err // no need to wrap 404 err
+		return nil, false, nil
 	} else if err != nil {
 		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s' - file '%s'", repositoryFullName, kurtosisYamlFilePath)
 	}
@@ -442,7 +444,7 @@ func extractKurtosisPackageContent(
 	starlarkMainDotStartContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisMainDotStarFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
 		logrus.Debugf("No '%s' file in repo '%s'", kurtosisMainDotStarFilePath, repositoryFullName)
-		return nil, false, err // no need to wrap 404 err
+		return nil, false, nil
 	} else if err != nil {
 		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s' - file '%s'", repositoryFullName, kurtosisMainDotStarFilePath)
 	}

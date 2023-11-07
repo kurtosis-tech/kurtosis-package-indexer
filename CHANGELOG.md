@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.11](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.10...0.0.11) (2023-11-07)
+
+
+### Features
+
+* generate typescript bindings ([#46](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/46)) ([bc881c5](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/bc881c5be5d424d1a6a875350e43804a33f1c0d7))
+* return default values ([#54](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/54)) ([21739bc](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/21739bc35b3c3dd4aa44976c7793e6e4914887b6))
+
+
+### Bug Fixes
+
+* improve read pkg err handling ([#56](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/56)) ([4c090ff](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/4c090ffd9235eed18f0dee20b9941a231367adbf))
+* use forked kurtosis docstring pkg ([#53](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/53)) ([7a175e6](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/7a175e6f62d4fa249b03cccb199465691a7e3b4e))
+
 ## [0.0.10](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.9...0.0.10) (2023-10-19)
 
 

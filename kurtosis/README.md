@@ -8,7 +8,7 @@ Running the package
 
 Kurtosis Package Indexer requires a valid Github token to search Kurtosis packages on Github.
 The token can be passed either as a direct environment variable, or the indexer can also fetch
-it from the content of a file inside an S3 bukcet. See the indexer [README](../README.md) for more info 
+it from the content of a file inside an S3 bucket. See the indexer [README](../README.md) for more info 
 
 If the latter is used, make sure a file named `github-user-token.txt` is available in the S3 bucket
 under the path `${aws_bucket_user_folder}/kurtosis-package-indexer/`

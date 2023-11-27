@@ -255,29 +255,16 @@ func ReadPackage(
 		0, // We don't know (or care) what the star count is
 	)
 	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
-
-	var packageContent *KurtosisPackageContent
-	packageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
+	kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
+	}
 	if !packageFound {
-		logrus.Debugf("Kurtosis package repository content at '%s' could not be retrieved as it was invalid.", packageRepositoryLocator)
-		// TODO(kevin): it's weird to have this extra "ok" in addition to "err"; ideally, the Compose-parsing logic
-		//  should simply be weaved into extractKurtosisPackageContent (so that from the caller's perspective, extractKurtosisPackageContents
-		//  does $black_box_things and this function doesn't have to care about what those things are
-		parsingError := stacktrace.NewError(fmt.Sprintf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.", packageRepositoryLocator), err)
-		logrus.Warn(parsingError)
-		logrus.Debugf("Unable to find a kurtosis package in the repository. Checking for a docker compose instead...")
-		packageContent, packageFound, err = extractDockerComposePackageContent(ctx, githubClient, kurtosisPackageMetadata)
-		if !packageFound {
-			parsingError := stacktrace.NewError(fmt.Sprintf("Docker Compose repository content '%s' could not be retrieved as it was invalid.", packageRepositoryLocator), err)
-			logrus.Warn(parsingError)
-			return nil, parsingError
-		}
-		if err != nil {
-			return nil, stacktrace.Propagate(err, "an unexpected error occurred retrieving content for the Docker Compose package repository '%s'", packageRepositoryLocator)
-		}
+		logrus.Warn("No Kurtosis package found.") // don't want to log provided package repository locator bc it's a security risk (eg. malicious data)
+		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files or a supported docker compose yaml file.", packageRepositoryLocator, kurtosisYamlFileName, starlarkMainDotStarFileName)
 	}
 
-	kurtosisPackageApi := convertRepoContentToApi(packageContent)
+	kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)
 	return kurtosisPackageApi, nil
 }
 
@@ -423,8 +410,16 @@ func extractKurtosisPackageContent(
 	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisYamlFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
 		logrus.Debugf("No '%s' file in repo '%s'", kurtosisYamlFilePath, repositoryFullName)
-		// TODO(kevin): this is where the logic for "they don't have a kurtosis.yml, but maybe they have a Compose" should live
-		return nil, false, nil
+		logrus.Debugf("Attempting to extract a docker compose based package...")
+		composePackageContent, composePackageFound, err := extractDockerComposePackageContent(ctx, client, packageRepositoryMetadata)
+		if err != nil {
+			return nil, false, err
+		}
+		if !composePackageFound {
+			logrus.Debugf("No docker compose based package found in repo %v.", repositoryFullName)
+			return nil, false, nil
+		}
+		return composePackageContent, true, nil
 	} else if err != nil {
 		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s' - file '%s'", repositoryFullName, kurtosisYamlFilePath)
 	}
@@ -487,11 +482,12 @@ func extractKurtosisPackageContent(
 	), true, nil
 }
 
+// If the docker compose yaml doesn't exist, returns an empty package content, false, and empty error
+// If docker compose yaml exists, but error occurred while extracting package content, returns empty package content, false, with an error
 func extractDockerComposePackageContent(
 	ctx context.Context,
 	client *github.Client,
 	packageRepositoryMetadata *PackageRepositoryMetadata) (*KurtosisPackageContent, bool, error) {
-	//repositoryFullName := fmt.Sprintf("%s/%s/%s", packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath)
 
 	repoGetContentOpts := &github.RepositoryContentGetOptions{
 		Ref: "",
@@ -514,13 +510,7 @@ func extractDockerComposePackageContent(
 		return nil, false, nil
 	}
 
-	//kurtosisPackageName, kurtosisPackageDescription, commitSHA, err := ParseDockerComposeYaml(dockerComposeYamlFileContentResult)
-	//if err != nil {
-	//	logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'"+
-	//		"Error was:\n%v", dockerComposeYamlFilePath, repositoryFullName, err.Error())
-	//	return nil, false, err
-	//}
-
+	// no notion of main dot star in docker compose so leave fields blank for now
 	mainDotStarParsedContent := KurtosisMainDotStar{
 		Description:       "", // TODO: input description
 		ReturnDescription: "", // TODO: Input return description
@@ -529,8 +519,7 @@ func extractDockerComposePackageContent(
 
 	return NewKurtosisPackageContent(
 		packageRepositoryMetadata,
-		// TODO(kevin): missing subpath (if there is one); see the equivalent code up above
-		fmt.Sprintf("%v/%v/%v", githubUrl, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name),
+		normalizeName(fmt.Sprintf("%s/%s/%s/%s", githubUrl, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath)),
 		"",
 		mainDotStarParsedContent.Description,
 		mainDotStarParsedContent.ReturnDescription,

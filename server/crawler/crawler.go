@@ -182,7 +182,6 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 			apiRepositoryMetadata.GetName(),
 			apiRepositoryMetadata.GetRootPath(),
 			kurtosisYamlFileName,
-			supportedDockerComposeYmlFilenames,
 			storedPackage.GetStars(), // this is optional here as it will be updated extractKurtosisPackageContent below
 		)
 		packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
@@ -253,9 +252,6 @@ func ReadPackage(
 		apiRepositoryMetadata.GetName(),
 		apiRepositoryMetadata.GetRootPath(),
 		kurtosisYamlFileName,
-		// TODO(kevin): supportedDockerComposeYmlFilenames is a property of the *indexer* and its internal behaviour,
-		//  not of the repository; it shouldn't be set here in PackageRepositoryMetadata at all.
-		supportedDockerComposeYmlFilenames,
 		0, // We don't know (or care) what the star count is
 	)
 	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
@@ -394,7 +390,7 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 				numberOfStars = uint64(repository.GetStargazersCount())
 			}
 
-			newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repoOwner, repository.GetName(), rootPath, kurtosisYamlFileName, supportedDockerComposeYmlFilenames, numberOfStars)
+			newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repoOwner, repository.GetName(), rootPath, kurtosisYamlFileName, numberOfStars)
 			allPackageRepositoryMetadatas = append(allPackageRepositoryMetadatas, newPackageRepositoryMetadata)
 		}
 
@@ -407,7 +403,7 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 }
 
 // If the package doesn't exist, returns an empty package content, false, and empty error
-// If package exists, but error occurred while extracting package content returns empty package content, false, with an error
+// If package exists, but error occurred while extracting package content, returns empty package content, false, with an error
 func extractKurtosisPackageContent(
 	ctx context.Context,
 	client *github.Client,
@@ -505,7 +501,7 @@ func extractDockerComposePackageContent(
 
 	var dockerComposeYamlFileContentResult *github.RepositoryContent
 	var dockerComposeYamlFilePath string
-	for _, dockerComposeYamlVariation := range packageRepositoryMetadata.SupportedDockerComposeYamlFileNames {
+	for _, dockerComposeYamlVariation := range supportedDockerComposeYmlFilenames {
 		dockerComposeYamlFilePath = fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, dockerComposeYamlVariation)
 
 		yamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, dockerComposeYamlFilePath, repoGetContentOpts)

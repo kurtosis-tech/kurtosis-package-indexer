@@ -35,14 +35,14 @@ func main() {
 	ctx := context.Background()
 	configureLogger()
 
-	// Setup the store which will store all the packages. For now all in memory
+	// Set up the store which will store all the packages. For now all in memory
 	indexerStore, err := store.InstantiateStoreFromEnvVar()
 	if err != nil {
 		exitFailure(err)
 	}
 	defer indexerStore.Close()
 
-	// Setup the crawler which will populate the store on a periodical basis
+	// Set up the crawler which will populate the store on a periodical basis
 	indexerCtx, cancelFunc := context.WithCancel(ctx)
 	indexerCrawler := crawler.NewGithubCrawler(indexerCtx, indexerStore)
 	if err := indexerCrawler.Schedule(false); err != nil {

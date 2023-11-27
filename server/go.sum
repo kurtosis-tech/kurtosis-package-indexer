@@ -71,6 +71,8 @@ github.com/kurtosis-tech/kurtosis/connect-server v0.0.0-20230825003324-75d481e0d
 github.com/kurtosis-tech/kurtosis/connect-server v0.0.0-20230825003324-75d481e0db8c/go.mod h1:xM8ZXB9rNjX4swL2KI2gKA6MKBjUmxSLU8RTsRY3vBE=
 github.com/kurtosis-tech/stacktrace v0.0.0-20211028211901-1c67a77b5409 h1:YQTATifMUwZEtZYb0LVA7DK2pj8s71iY8rzweuUQ5+g=
 github.com/kurtosis-tech/stacktrace v0.0.0-20211028211901-1c67a77b5409/go.mod h1:y5weVs5d9wXXHcDA1awRxkIhhHC1xxYJN8a7aXnE6S8=
+github.com/kurtosis-tech/starlark-lsp v0.0.0-20231103163737-8f660a80cb17 h1:9a2G1iV+NMYam2pDZpiUwet7EabM9trYyE0B9ArNgis=
+github.com/kurtosis-tech/starlark-lsp v0.0.0-20231103163737-8f660a80cb17/go.mod h1:rWNMQSzzVLroUVWhe24Qp3EUgSG+LkeiMD1n7lfTtgU=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
@@ -86,8 +88,6 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
-github.com/tilt-dev/starlark-lsp v0.0.0-20230210155543-84c13fe0ff94 h1:IV0e4/w6PswnHdVmAZ6Ipo8ZdgaPn1nWTNR7Sd2LETo=
-github.com/tilt-dev/starlark-lsp v0.0.0-20230210155543-84c13fe0ff94/go.mod h1:bnkWmNDRqs9DgHgrImOSt6dFAcVcN14pqhR3iZsWWaE=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=

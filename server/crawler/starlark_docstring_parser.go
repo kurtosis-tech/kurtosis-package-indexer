@@ -1,7 +1,7 @@
 package crawler
 
 import (
-	"github.com/tilt-dev/starlark-lsp/pkg/docstring"
+	"github.com/kurtosis-tech/starlark-lsp/pkg/docstring"
 	"regexp"
 	"strings"
 )
@@ -28,10 +28,11 @@ func ParseRunFunctionDocstring(rawDocstring string) (*KurtosisMainDotStar, error
 
 		if argName != "" {
 			arguments = append(arguments, &StarlarkFunctionArgument{
-				Name:        argName,
-				Description: arg.Desc,
-				Type:        argType,
-				IsRequired:  false,
+				Name:         argName,
+				Description:  arg.Desc,
+				Type:         argType,
+				IsRequired:   false,
+				DefaultValue: nil,
 			})
 		}
 	}

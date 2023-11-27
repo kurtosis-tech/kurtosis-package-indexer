@@ -187,14 +187,12 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 		)
 		packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 		logrus.Debugf("Trying to update content of package '%s'", packageRepositoryLocator) // TODO: remove log line
-		kurtosisPackageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
+		kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 		if err != nil {
-			return 0, 0, 0, stacktrace.Propagate(err, "An unexpected error occurred retrieving content for Kurtosis package repository '%s'",
-				packageRepositoryLocator)
+			return 0, 0, 0, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
 		}
-		if !ok {
-			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved. It will be "+
-				"removed from the store", packageRepositoryLocator)
+		if !packageFound {
+			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved. It will be removed from the store", packageRepositoryLocator)
 			kurtosisPackageRemoved[packageRepositoryLocator] = true
 			if err := crawler.store.DeletePackage(ctx, packageRepositoryLocator); err != nil {
 				logrus.Warnf("An error occurred removing package '%s' from repository '%s' from the store. It will remain but the "+
@@ -225,13 +223,12 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 			continue
 		}
 
-		kurtosisPackageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
+		kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 		if err != nil {
-			logrus.Warnf("An error occurred parsing content for Kurtosis package repository '%s'", packageRepositoryLocator)
+			logrus.Warnf("An error occurred extracting content for Kurtosis package at '%s'", packageRepositoryLocator)
 		}
-		if !ok {
-			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.",
-				packageRepositoryLocator)
+		if !packageFound {
+			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.", packageRepositoryLocator)
 			continue
 		}
 
@@ -262,9 +259,10 @@ func ReadPackage(
 		0, // We don't know (or care) what the star count is
 	)
 	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
+
 	var packageContent *KurtosisPackageContent
-	packageContent, ok, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
-	if !ok {
+	packageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
+	if !packageFound {
 		logrus.Debugf("Kurtosis package repository content at '%s' could not be retrieved as it was invalid.", packageRepositoryLocator)
 		// TODO(kevin): it's weird to have this extra "ok" in addition to "err"; ideally, the Compose-parsing logic
 		//  should simply be weaved into extractKurtosisPackageContent (so that from the caller's perspective, extractKurtosisPackageContents
@@ -272,8 +270,8 @@ func ReadPackage(
 		parsingError := stacktrace.NewError(fmt.Sprintf("Kurtosis package repository content '%s' could not be retrieved as it was invalid.", packageRepositoryLocator), err)
 		logrus.Warn(parsingError)
 		logrus.Debugf("Unable to find a kurtosis package in the repository. Checking for a docker compose instead...")
-		packageContent, ok, err = extractDockerComposePackageContent(ctx, githubClient, kurtosisPackageMetadata)
-		if !ok {
+		packageContent, packageFound, err = extractDockerComposePackageContent(ctx, githubClient, kurtosisPackageMetadata)
+		if !packageFound {
 			parsingError := stacktrace.NewError(fmt.Sprintf("Docker Compose repository content '%s' could not be retrieved as it was invalid.", packageRepositoryLocator), err)
 			logrus.Warn(parsingError)
 			return nil, parsingError
@@ -281,10 +279,6 @@ func ReadPackage(
 		if err != nil {
 			return nil, stacktrace.Propagate(err, "an unexpected error occurred retrieving content for the Docker Compose package repository '%s'", packageRepositoryLocator)
 		}
-	}
-	if err != nil {
-		return nil, stacktrace.Propagate(err, "an unexpected error occurred retrieving content for Kurtosis package repository '%s'",
-			packageRepositoryLocator)
 	}
 
 	kurtosisPackageApi := convertRepoContentToApi(packageContent)
@@ -303,7 +297,7 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 			}
 		}
 		convertedPackageArg = api_constructors.NewPackageArg(
-			arg.Name, arg.Description, arg.IsRequired, convertedPackageArgTypeV2Ptr)
+			arg.Name, arg.Description, arg.IsRequired, convertedPackageArgTypeV2Ptr, arg.DefaultValue)
 		kurtosisPackageArgsApi = append(kurtosisPackageArgsApi, convertedPackageArg)
 	}
 	packageRepository := api_constructors.NewPackageRepository(
@@ -412,6 +406,8 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 	return allPackageRepositoryMetadatas, nil
 }
 
+// If the package doesn't exist, returns an empty package content, false, and empty error
+// If package exists, but error occurred while extracting package content returns empty package content, false, with an error
 func extractKurtosisPackageContent(
 	ctx context.Context,
 	client *github.Client,
@@ -426,6 +422,8 @@ func extractKurtosisPackageContent(
 	nowAsUTC := getTimeProtobufInUTC()
 
 	kurtosisYamlFilePath := fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, packageRepositoryMetadata.KurtosisYamlFileName)
+
+	// get contents of kurtosis yaml file from github
 	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisYamlFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
 		logrus.Debugf("No '%s' file in repo '%s'", kurtosisYamlFilePath, repositoryFullName)
@@ -436,9 +434,9 @@ func extractKurtosisPackageContent(
 	}
 	kurtosisPackageName, kurtosisPackageDescription, commitSHA, err := ParseKurtosisYaml(kurtosisYamlFileContentResult)
 	if err != nil {
-		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'"+
+		logrus.Warnf("An error occurred parsing '%s' file in repository '%s'"+
 			"Error was:\n%v", kurtosisYamlFilePath, repositoryFullName, err.Error())
-		return nil, false, err
+		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", kurtosisYamlFileName)
 	}
 
 	// we check that the name set in kurtosis.yml matches the location on Github. If not, we exclude it from the
@@ -464,6 +462,7 @@ func extractKurtosisPackageContent(
 		return nil, false, nameError
 	}
 
+	// get contents of main.star file from github
 	kurtosisMainDotStarFilePath := fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, starlarkMainDotStarFileName)
 	starlarkMainDotStartContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisMainDotStarFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
@@ -472,11 +471,11 @@ func extractKurtosisPackageContent(
 	} else if err != nil {
 		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s' - file '%s'", repositoryFullName, kurtosisMainDotStarFilePath)
 	}
-	mainDotStarParsedContent, err := ParseStarlarkMainDoStar(starlarkMainDotStartContentResult)
+	mainDotStarParsedContent, err := ParseStarlarkMainDotStar(starlarkMainDotStartContentResult)
 	if err != nil {
-		logrus.Warnf("An error occurred parsing '%s' YAML file in repository '%s'. This Kurtosis package will not be indexed. "+
+		logrus.Warnf("An error occurred parsing '%s' file in repository '%s'. This Kurtosis package will not be indexed. "+
 			"Error was:\n%v", kurtosisMainDotStarFilePath, repositoryFullName, err.Error())
-		return nil, false, nil
+		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", starlarkMainDotStarFileName)
 	}
 
 	return NewKurtosisPackageContent(

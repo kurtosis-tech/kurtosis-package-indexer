@@ -26,6 +26,8 @@ const (
 	githubUrl = "github.com"
 
 	successfulParsingText = "Parsed package content successfully"
+
+	noStartsSet = 0
 )
 
 type GithubCrawler struct {
@@ -243,7 +245,7 @@ func ReadPackage(
 		apiRepositoryMetadata.GetName(),
 		apiRepositoryMetadata.GetRootPath(),
 		kurtosisYamlFileName,
-		0, // We don't know (or care) what the star count is
+		noStartsSet, // We will fill it at the end of this function
 	)
 	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 	kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
@@ -254,6 +256,13 @@ func ReadPackage(
 		logrus.Warn("No Kurtosis package found.") // don't want to log provided package repository locator bc it's a security risk (e.g. malicious data)
 		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageRepositoryLocator, kurtosisYamlFileName, starlarkMainDotStarFileName)
 	}
+
+	// fill with the repository starts
+	repository, _, err := githubClient.Repositories.Get(ctx, apiRepositoryMetadata.GetOwner(), apiRepositoryMetadata.GetName())
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", apiRepositoryMetadata.GetName(), apiRepositoryMetadata.GetOwner())
+	}
+	kurtosisPackageContent.RepositoryMetadata.Stars = uint64(repository.GetStargazersCount())
 
 	kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)
 	return kurtosisPackageApi, nil

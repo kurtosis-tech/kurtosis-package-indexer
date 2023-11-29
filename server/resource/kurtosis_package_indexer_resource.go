@@ -52,7 +52,7 @@ func (resource *KurtosisPackageIndexer) ReadPackage(ctx context.Context, input *
 	}
 	pack, err := crawler.ReadPackage(ctx, githubClient, input.GetRepositoryMetadata())
 	if err != nil {
-		return nil, err
+		return nil, stacktrace.Propagate(err, "an error occurred reading package '%+v'", input.GetRepositoryMetadata())
 	}
 	return api_constructors.NewReadPackageResponse(pack), nil
 }

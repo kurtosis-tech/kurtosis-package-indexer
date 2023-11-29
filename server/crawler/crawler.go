@@ -144,7 +144,7 @@ func CreateGithubClient(ctx context.Context) (*github.Client, error) {
 		authenticatedHttpClient, err = AuthenticatedHttpClientFromS3BucketContent(ctx)
 		if err != nil {
 			logrus.Warnf("Unable to build authenticated Github client from S3 bucket. Error was:\n%v", err.Error())
-			return nil, stacktrace.NewError("Unable to build authenticated Github client. This is required so that"+
+			return nil, stacktrace.NewError("Unable to build authenticated Github client. This is required so that "+
 				"the indexer can search Github to retrieve Kurtosis package content. Skipping indexing for now, will "+
 				"retry in %v", crawlFrequency)
 		}
@@ -251,7 +251,7 @@ func ReadPackage(
 		return nil, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
 	}
 	if !packageFound {
-		logrus.Warn("No Kurtosis package found.") // don't want to log provided package repository locator bc it's a security risk (eg. malitious data)
+		logrus.Warn("No Kurtosis package found.") // don't want to log provided package repository locator bc it's a security risk (e.g. malicious data)
 		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageRepositoryLocator, kurtosisYamlFileName, starlarkMainDotStarFileName)
 	}
 
@@ -346,18 +346,15 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 				continue
 			}
 
-			// It's not clear what to use in the `GetContents` function called below, as the `owner` field. We would prefer to
-			// just pass in githubRepository.GetFullName() and that's it, but it doesn't work
-			// So, to parse the owner name, we try both the `Login` and `Name` field, taking the first one that is not empty.
-			// For repo owned by `kurtosis-tech` for example, it's the Login field that will be used, as the Name one is empty
-			// If this is too fragile, worst case we can regexp parse `githubRepository.GetFullName()`
-			repository := searchResult.Repository
-			var repoOwner string
-			if repository.GetOwner().GetLogin() != "" {
-				repoOwner = repository.GetOwner().GetLogin()
-			} else if repository.GetOwner().GetName() != "" {
-				repoOwner = repository.GetOwner().GetName()
-			} else {
+			repository, err := completeRepository(ctx, client, searchResult.Repository)
+			if err != nil {
+				logrus.Warnf("Search result '%s' was invalid b/c were not able to complete the repository data",
+					repository.GetFullName())
+				continue
+			}
+
+			repoOwner, err := getRepositoryOwner(repository)
+			if err != nil {
 				logrus.Warnf("Search result '%s' was invalid b/c the Github repository has no owner",
 					repository.GetFullName())
 				continue
@@ -462,6 +459,45 @@ func extractKurtosisPackageContent(
 		commitSHA,
 		mainDotStarParsedContent.Arguments...,
 	), true, nil
+}
+
+func getRepositoryOwner(repository *github.Repository) (string, error) {
+	// It's not clear what to use in the `GetContents` function called below, as the `owner` field. We would prefer to
+	// just pass in githubRepository.GetFullName() and that's it, but it doesn't work
+	// So, to parse the owner name, we try both the `Login` and `Name` field, taking the first one that is not empty.
+	// For repo owned by `kurtosis-tech` for example, it's the Login field that will be used, as the Name one is empty
+	// If this is too fragile, worst case we can regexp parse `githubRepository.GetFullName()`
+	if repository.GetOwner().GetLogin() != "" {
+		return repository.GetOwner().GetLogin(), nil
+	} else if repository.GetOwner().GetName() != "" {
+		return repository.GetOwner().GetName(), nil
+	}
+
+	return "", stacktrace.NewError("impossible to get owner from Github repository '%+v'", repository)
+
+}
+
+// completeRepository receives a probably uncompleted Repository object(for instance when it's returned by the Search endpoint)
+// and it will execute a request to GitHub for complete the data.
+// right now the only condition for completing it, is when the StargazersCount is nil because we need this data,
+// but we could add more conditions in the future
+func completeRepository(ctx context.Context, client *github.Client, currentRepository *github.Repository) (*github.Repository, error) {
+	var err error
+	var owner string
+	repository := currentRepository
+
+	if repository.StargazersCount == nil {
+		owner, err = getRepositoryOwner(repository)
+		if err != nil {
+			return nil, stacktrace.Propagate(err, "an error occurred getting the repository owner")
+		}
+		repository, _, err = client.Repositories.Get(ctx, owner, repository.GetName())
+		if err != nil {
+			return nil, stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", currentRepository.GetName(), owner)
+		}
+	}
+
+	return repository, nil
 }
 
 func getTimeInUTC() time.Time {

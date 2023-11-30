@@ -118,7 +118,7 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 		}()
 	}
 
-	githubClient, err := CreateGithubClient(ctx)
+	githubClient, err := createGithubClient(ctx)
 	if err != nil {
 		logrus.Error("An error occurred while creating the github client. Aborting", err)
 		return
@@ -138,7 +138,7 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 		time.Since(tickerTime), crawlSuccessful, packageUpdated, packageAdded, packageRemoved)
 }
 
-func CreateGithubClient(ctx context.Context) (*github.Client, error) {
+func createGithubClient(ctx context.Context) (*github.Client, error) {
 	authenticatedHttpClient, err := AuthenticatedHttpClientFromEnvVar(ctx)
 	if err != nil {
 		logrus.Warnf("Unable to build authenticated Github client from environment variable. It will now try "+
@@ -235,9 +235,8 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 	return len(kurtosisPackageUpdated), len(kurtosisPackageAdded), len(kurtosisPackageRemoved), nil
 }
 
-func ReadPackage(
+func (crawler *GithubCrawler) ReadPackage(
 	ctx context.Context,
-	githubClient *github.Client,
 	apiRepositoryMetadata *generated.PackageRepository,
 ) (*generated.KurtosisPackage, error) {
 	kurtosisPackageMetadata := NewPackageRepositoryMetadata(
@@ -245,8 +244,14 @@ func ReadPackage(
 		apiRepositoryMetadata.GetName(),
 		apiRepositoryMetadata.GetRootPath(),
 		kurtosisYamlFileName,
-		noStartsSet, // We will fill it at the end of this function
+		noStartsSet, // it will be filled at the end of this function
 	)
+
+	githubClient, err := createGithubClient(ctx)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred while creating the github client")
+	}
+
 	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 	kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 	if err != nil {

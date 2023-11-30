@@ -46,11 +46,7 @@ func (resource *KurtosisPackageIndexer) ReadPackage(ctx context.Context, input *
 	if input == nil {
 		return nil, stacktrace.NewError("an empty input was provided")
 	}
-	githubClient, err := crawler.CreateGithubClient(ctx)
-	if err != nil {
-		return nil, stacktrace.Propagate(err, "an error occurred while creating the github client")
-	}
-	pack, err := crawler.ReadPackage(ctx, githubClient, input.GetRepositoryMetadata())
+	pack, err := resource.crawler.ReadPackage(ctx, input.GetRepositoryMetadata())
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred reading package '%+v'", input.GetRepositoryMetadata())
 	}

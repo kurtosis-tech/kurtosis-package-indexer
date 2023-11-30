@@ -263,13 +263,6 @@ func ReadPackage(
 		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageRepositoryLocator, defaultKurtosisYamlFilename, starlarkMainDotStarFileName)
 	}
 
-	// fill it with the repository starts
-	repository, _, err := githubClient.Repositories.Get(ctx, apiRepositoryMetadata.GetOwner(), apiRepositoryMetadata.GetName())
-	if err != nil {
-		return nil, stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", apiRepositoryMetadata.GetName(), apiRepositoryMetadata.GetOwner())
-	}
-	kurtosisPackageContent.RepositoryMetadata.Stars = uint64(repository.GetStargazersCount())
-
 	kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)
 	return kurtosisPackageApi, nil
 }
@@ -361,12 +354,7 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 				continue
 			}
 
-			repository, err := completeRepository(ctx, client, searchResult.Repository)
-			if err != nil {
-				logrus.Warnf("Search result '%s' was invalid b/c were not able to complete the repository data",
-					repository.GetFullName())
-				continue
-			}
+			repository := searchResult.Repository
 
 			repoOwner, err := getRepositoryOwner(repository)
 			if err != nil {
@@ -469,6 +457,17 @@ func extractKurtosisPackageContent(
 		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", starlarkMainDotStarFileName)
 	}
 
+	//add or update the stars
+	repository, _, err := client.Repositories.Get(ctx, repositoryOwner, repositoryName)
+	if err != nil {
+		return nil, false, stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", repositoryName, repositoryOwner)
+	}
+	// is necessary to check for nil because if it's not returned in the response the number will be 0 when we call GetStargazersCount()
+	// and this could overwrite a previous value
+	if repository.StargazersCount == nil {
+		packageRepositoryMetadata.Stars = uint64(repository.GetStargazersCount())
+	}
+
 	return NewKurtosisPackageContent(
 		packageRepositoryMetadata,
 		kurtosisPackageName,
@@ -496,29 +495,6 @@ func getRepositoryOwner(repository *github.Repository) (string, error) {
 
 	return "", stacktrace.NewError("impossible to get owner from Github repository '%+v'", repository)
 
-}
-
-// completeRepository receives a probably uncompleted Repository object(for instance when it's returned by the Search endpoint)
-// and it will execute a request to GitHub for complete the data.
-// right now the only condition for completing it, is when the StargazersCount is nil because we need this data,
-// but we could add more conditions in the future
-func completeRepository(ctx context.Context, client *github.Client, currentRepository *github.Repository) (*github.Repository, error) {
-	var err error
-	var owner string
-	repository := currentRepository
-
-	if repository.StargazersCount == nil {
-		owner, err = getRepositoryOwner(repository)
-		if err != nil {
-			return nil, stacktrace.Propagate(err, "an error occurred getting the repository owner")
-		}
-		repository, _, err = client.Repositories.Get(ctx, owner, repository.GetName())
-		if err != nil {
-			return nil, stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", currentRepository.GetName(), owner)
-		}
-	}
-
-	return repository, nil
 }
 
 func getTimeInUTC() time.Time {

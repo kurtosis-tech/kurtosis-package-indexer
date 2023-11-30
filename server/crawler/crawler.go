@@ -235,7 +235,7 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 	return len(kurtosisPackageUpdated), len(kurtosisPackageAdded), len(kurtosisPackageRemoved), nil
 }
 
-func (crawler *GithubCrawler) ReadPackage(
+func ReadPackage(
 	ctx context.Context,
 	apiRepositoryMetadata *generated.PackageRepository,
 ) (*generated.KurtosisPackage, error) {
@@ -262,7 +262,6 @@ func (crawler *GithubCrawler) ReadPackage(
 		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageRepositoryLocator, kurtosisYamlFileName, starlarkMainDotStarFileName)
 	}
 
-	// TODO try to get the repo from the store first, to improve performance
 	// fill it with the repository starts
 	repository, _, err := githubClient.Repositories.Get(ctx, apiRepositoryMetadata.GetOwner(), apiRepositoryMetadata.GetName())
 	if err != nil {

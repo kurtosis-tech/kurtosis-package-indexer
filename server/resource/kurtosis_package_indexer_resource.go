@@ -46,7 +46,7 @@ func (resource *KurtosisPackageIndexer) ReadPackage(ctx context.Context, input *
 	if input == nil {
 		return nil, stacktrace.NewError("an empty input was provided")
 	}
-	pack, err := resource.crawler.ReadPackage(ctx, input.GetRepositoryMetadata())
+	pack, err := crawler.ReadPackage(ctx, input.GetRepositoryMetadata())
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred reading package '%+v'", input.GetRepositoryMetadata())
 	}

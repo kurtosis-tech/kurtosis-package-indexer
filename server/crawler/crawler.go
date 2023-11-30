@@ -262,7 +262,8 @@ func (crawler *GithubCrawler) ReadPackage(
 		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageRepositoryLocator, kurtosisYamlFileName, starlarkMainDotStarFileName)
 	}
 
-	// fill with the repository starts
+	// TODO try to get the repo from the store first, to improve performance
+	// fill it with the repository starts
 	repository, _, err := githubClient.Repositories.Get(ctx, apiRepositoryMetadata.GetOwner(), apiRepositoryMetadata.GetName())
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", apiRepositoryMetadata.GetName(), apiRepositoryMetadata.GetOwner())
@@ -446,7 +447,7 @@ func extractKurtosisPackageContent(
 		return nil, false, nameError
 	}
 
-	// get contents of main.star file from github
+	// get contents of main.star file from GitHub
 	kurtosisMainDotStarFilePath := fmt.Sprintf("%s/%s", packageRepositoryMetadata.RootPath, starlarkMainDotStarFileName)
 	starlarkMainDotStartContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisMainDotStarFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {

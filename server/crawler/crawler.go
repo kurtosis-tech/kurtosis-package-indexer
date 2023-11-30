@@ -406,7 +406,7 @@ func extractKurtosisPackageContent(
 
 	nowAsUTC := getTimeProtobufInUTC()
 
-	kurtosisYamlFilePath := fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, packageRepositoryMetadata.KurtosisYamlFileName)
+	kurtosisYamlFilePath := fmt.Sprintf("%s/%s", packageRepositoryMetadata.RootPath, packageRepositoryMetadata.KurtosisYamlFileName)
 
 	// get contents of kurtosis yaml file from github
 	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisYamlFilePath, repoGetContentOpts)
@@ -447,7 +447,7 @@ func extractKurtosisPackageContent(
 	}
 
 	// get contents of main.star file from github
-	kurtosisMainDotStarFilePath := fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, starlarkMainDotStarFileName)
+	kurtosisMainDotStarFilePath := fmt.Sprintf("%s/%s", packageRepositoryMetadata.RootPath, starlarkMainDotStarFileName)
 	starlarkMainDotStartContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisMainDotStarFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
 		logrus.Debugf("No '%s' file in repo '%s'", kurtosisMainDotStarFilePath, repositoryFullName)

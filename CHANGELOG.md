@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.13](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.12...0.0.13) (2023-11-30)
+
+
+### Bug Fixes
+
+* revet change on repo filepaths generation ([#66](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/66)) ([1b5bb45](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/1b5bb45513bbf94c7a247278c74526691c6a5429))
+
 ## [0.0.12](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.11...0.0.12) (2023-11-30)
 
 

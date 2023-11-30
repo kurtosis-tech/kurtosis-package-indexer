@@ -29,6 +29,8 @@ const (
 	successfulParsingText = "Parsed package content successfully"
 
 	noStartsSet = 0
+
+	onlyOneCommit = 1
 )
 
 type GithubCrawler struct {
@@ -299,6 +301,7 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.ParsingResult,
 		kurtosisPackageContent.ParsingTime,
 		kurtosisPackageContent.Version,
+		kurtosisPackageContent.RepositoryMetadata.LatestCommitDate,
 		kurtosisPackageArgsApi...,
 	)
 }
@@ -457,15 +460,8 @@ func extractKurtosisPackageContent(
 		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", starlarkMainDotStarFileName)
 	}
 
-	//add or update the stars
-	repository, _, err := client.Repositories.Get(ctx, repositoryOwner, repositoryName)
-	if err != nil {
-		return nil, false, stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", repositoryName, repositoryOwner)
-	}
-	// is necessary to check for nil because if it's not returned in the response the number will be 0 when we call GetStargazersCount()
-	// and this could overwrite a previous value
-	if repository.StargazersCount == nil {
-		packageRepositoryMetadata.Stars = uint64(repository.GetStargazersCount())
+	if err != addOrUpdatePackageRepositoryMetadataWithStarsAndLastCommitDate(ctx, client, repositoryOwner, repositoryName, packageRepositoryMetadata) {
+		logrus.Warnf("an error occurred while adding or updating the repo starts and last commit date for repository '%s'. Error was:\n%v", repositoryName, err.Error())
 	}
 
 	return NewKurtosisPackageContent(
@@ -479,6 +475,49 @@ func extractKurtosisPackageContent(
 		commitSHA,
 		mainDotStarParsedContent.Arguments...,
 	), true, nil
+}
+
+func addOrUpdatePackageRepositoryMetadataWithStarsAndLastCommitDate(
+	ctx context.Context,
+	client *github.Client,
+	repositoryOwner string,
+	repositoryName string,
+	packageRepositoryMetadata *PackageRepositoryMetadata,
+) error {
+	// add or update the stars
+	repository, _, err := client.Repositories.Get(ctx, repositoryOwner, repositoryName)
+	if err != nil {
+		return stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", repositoryName, repositoryOwner)
+	}
+	// is necessary to check for nil because if it's not returned in the response the number will be 0 when we call GetStargazersCount()
+	// and this could overwrite a previous value
+	if repository.StargazersCount == nil {
+		return stacktrace.NewError("no stars received when calling GitHub for repository '%s' it should return at least 0 stars", repositoryName)
+	}
+	packageRepositoryMetadata.Stars = uint64(repository.GetStargazersCount())
+
+	// add or update the latest commit date
+	commitListOptions := &github.CommitsListOptions{
+		ListOptions: github.ListOptions{
+			PerPage: onlyOneCommit, // it will return the latest one from the main branch
+		},
+	}
+	repositoryCommits, _, err := client.Repositories.ListCommits(ctx, repositoryOwner, repositoryName, commitListOptions)
+	if err != nil {
+		return stacktrace.Propagate(err, "an error occurred getting the commit list for repository '%s'", repositoryName)
+	}
+	if len(repositoryCommits) == 0 {
+		return stacktrace.NewError("zero commits were received when calling GitHub for getting the last commit for repository '%s'", repositoryName)
+	}
+
+	latestCommit := repositoryCommits[0]
+	if latestCommit == nil {
+		return stacktrace.NewError("an error occurred while trying to get the last commit form the received repository commits response '%+v'", repositoryCommits)
+	}
+	latestCommitGitHubTimestamp := latestCommit.GetCommit().GetCommitter().GetDate()
+	packageRepositoryMetadata.LatestCommitDate = latestCommitGitHubTimestamp.GetTime()
+
+	return nil
 }
 
 func getRepositoryOwner(repository *github.Repository) (string, error) {

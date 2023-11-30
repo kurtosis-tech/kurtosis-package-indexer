@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.12](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.11...0.0.12) (2023-11-30)
+
+
+### Bug Fixes
+
+* returns the package starts ([#64](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/64)) ([c5e077a](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/c5e077aabcc4795c0ba5be51a2a036f4f82027c6))
+
 ## [0.0.11](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.10...0.0.11) (2023-11-07)
 
 

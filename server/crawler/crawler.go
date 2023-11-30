@@ -26,6 +26,8 @@ const (
 	githubUrl = "github.com"
 
 	successfulParsingText = "Parsed package content successfully"
+
+	noStartsSet = 0
 )
 
 type GithubCrawler struct {
@@ -116,7 +118,7 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 		}()
 	}
 
-	githubClient, err := CreateGithubClient(ctx)
+	githubClient, err := createGithubClient(ctx)
 	if err != nil {
 		logrus.Error("An error occurred while creating the github client. Aborting", err)
 		return
@@ -136,7 +138,7 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 		time.Since(tickerTime), crawlSuccessful, packageUpdated, packageAdded, packageRemoved)
 }
 
-func CreateGithubClient(ctx context.Context) (*github.Client, error) {
+func createGithubClient(ctx context.Context) (*github.Client, error) {
 	authenticatedHttpClient, err := AuthenticatedHttpClientFromEnvVar(ctx)
 	if err != nil {
 		logrus.Warnf("Unable to build authenticated Github client from environment variable. It will now try "+
@@ -144,7 +146,7 @@ func CreateGithubClient(ctx context.Context) (*github.Client, error) {
 		authenticatedHttpClient, err = AuthenticatedHttpClientFromS3BucketContent(ctx)
 		if err != nil {
 			logrus.Warnf("Unable to build authenticated Github client from S3 bucket. Error was:\n%v", err.Error())
-			return nil, stacktrace.NewError("Unable to build authenticated Github client. This is required so that"+
+			return nil, stacktrace.NewError("Unable to build authenticated Github client. This is required so that "+
 				"the indexer can search Github to retrieve Kurtosis package content. Skipping indexing for now, will "+
 				"retry in %v", crawlFrequency)
 		}
@@ -235,7 +237,6 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 
 func ReadPackage(
 	ctx context.Context,
-	githubClient *github.Client,
 	apiRepositoryMetadata *generated.PackageRepository,
 ) (*generated.KurtosisPackage, error) {
 	kurtosisPackageMetadata := NewPackageRepositoryMetadata(
@@ -243,17 +244,30 @@ func ReadPackage(
 		apiRepositoryMetadata.GetName(),
 		apiRepositoryMetadata.GetRootPath(),
 		kurtosisYamlFileName,
-		0, // We don't know (or care) what the star count is
+		noStartsSet, // it will be filled at the end of this function
 	)
+
+	githubClient, err := createGithubClient(ctx)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred while creating the github client")
+	}
+
 	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 	kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
 	}
 	if !packageFound {
-		logrus.Warn("No Kurtosis package found.") // don't want to log provided package repository locator bc it's a security risk (eg. malitious data)
+		logrus.Warn("No Kurtosis package found.") // don't want to log provided package repository locator bc it's a security risk (e.g. malicious data)
 		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageRepositoryLocator, kurtosisYamlFileName, starlarkMainDotStarFileName)
 	}
+
+	// fill it with the repository starts
+	repository, _, err := githubClient.Repositories.Get(ctx, apiRepositoryMetadata.GetOwner(), apiRepositoryMetadata.GetName())
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", apiRepositoryMetadata.GetName(), apiRepositoryMetadata.GetOwner())
+	}
+	kurtosisPackageContent.RepositoryMetadata.Stars = uint64(repository.GetStargazersCount())
 
 	kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)
 	return kurtosisPackageApi, nil
@@ -346,18 +360,15 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 				continue
 			}
 
-			// It's not clear what to use in the `GetContents` function called below, as the `owner` field. We would prefer to
-			// just pass in githubRepository.GetFullName() and that's it, but it doesn't work
-			// So, to parse the owner name, we try both the `Login` and `Name` field, taking the first one that is not empty.
-			// For repo owned by `kurtosis-tech` for example, it's the Login field that will be used, as the Name one is empty
-			// If this is too fragile, worst case we can regexp parse `githubRepository.GetFullName()`
-			repository := searchResult.Repository
-			var repoOwner string
-			if repository.GetOwner().GetLogin() != "" {
-				repoOwner = repository.GetOwner().GetLogin()
-			} else if repository.GetOwner().GetName() != "" {
-				repoOwner = repository.GetOwner().GetName()
-			} else {
+			repository, err := completeRepository(ctx, client, searchResult.Repository)
+			if err != nil {
+				logrus.Warnf("Search result '%s' was invalid b/c were not able to complete the repository data",
+					repository.GetFullName())
+				continue
+			}
+
+			repoOwner, err := getRepositoryOwner(repository)
+			if err != nil {
 				logrus.Warnf("Search result '%s' was invalid b/c the Github repository has no owner",
 					repository.GetFullName())
 				continue
@@ -395,7 +406,7 @@ func extractKurtosisPackageContent(
 
 	nowAsUTC := getTimeProtobufInUTC()
 
-	kurtosisYamlFilePath := fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, packageRepositoryMetadata.KurtosisYamlFileName)
+	kurtosisYamlFilePath := fmt.Sprintf("%s/%s", packageRepositoryMetadata.RootPath, packageRepositoryMetadata.KurtosisYamlFileName)
 
 	// get contents of kurtosis yaml file from github
 	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisYamlFilePath, repoGetContentOpts)
@@ -435,8 +446,8 @@ func extractKurtosisPackageContent(
 		return nil, false, nameError
 	}
 
-	// get contents of main.star file from github
-	kurtosisMainDotStarFilePath := fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, starlarkMainDotStarFileName)
+	// get contents of main.star file from GitHub
+	kurtosisMainDotStarFilePath := fmt.Sprintf("%s/%s", packageRepositoryMetadata.RootPath, starlarkMainDotStarFileName)
 	starlarkMainDotStartContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisMainDotStarFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == 404 {
 		logrus.Debugf("No '%s' file in repo '%s'", kurtosisMainDotStarFilePath, repositoryFullName)
@@ -462,6 +473,45 @@ func extractKurtosisPackageContent(
 		commitSHA,
 		mainDotStarParsedContent.Arguments...,
 	), true, nil
+}
+
+func getRepositoryOwner(repository *github.Repository) (string, error) {
+	// It's not clear what to use in the `GetContents` function called below, as the `owner` field. We would prefer to
+	// just pass in githubRepository.GetFullName() and that's it, but it doesn't work
+	// So, to parse the owner name, we try both the `Login` and `Name` field, taking the first one that is not empty.
+	// For repo owned by `kurtosis-tech` for example, it's the Login field that will be used, as the Name one is empty
+	// If this is too fragile, worst case we can regexp parse `githubRepository.GetFullName()`
+	if repository.GetOwner().GetLogin() != "" {
+		return repository.GetOwner().GetLogin(), nil
+	} else if repository.GetOwner().GetName() != "" {
+		return repository.GetOwner().GetName(), nil
+	}
+
+	return "", stacktrace.NewError("impossible to get owner from Github repository '%+v'", repository)
+
+}
+
+// completeRepository receives a probably uncompleted Repository object(for instance when it's returned by the Search endpoint)
+// and it will execute a request to GitHub for complete the data.
+// right now the only condition for completing it, is when the StargazersCount is nil because we need this data,
+// but we could add more conditions in the future
+func completeRepository(ctx context.Context, client *github.Client, currentRepository *github.Repository) (*github.Repository, error) {
+	var err error
+	var owner string
+	repository := currentRepository
+
+	if repository.StargazersCount == nil {
+		owner, err = getRepositoryOwner(repository)
+		if err != nil {
+			return nil, stacktrace.Propagate(err, "an error occurred getting the repository owner")
+		}
+		repository, _, err = client.Repositories.Get(ctx, owner, repository.GetName())
+		if err != nil {
+			return nil, stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", currentRepository.GetName(), owner)
+		}
+	}
+
+	return repository, nil
 }
 
 func getTimeInUTC() time.Time {

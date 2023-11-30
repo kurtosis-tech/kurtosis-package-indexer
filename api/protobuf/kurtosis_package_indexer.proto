@@ -53,6 +53,8 @@ message KurtosisPackage {
 
   string version = 11;
 
+  google.protobuf.Timestamp last_updated_time = 12;
+
 }
 
 message PackageArg {

@@ -1,4 +1,4 @@
-git # Changelog
+# Changelog
 
 ## [0.0.13](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.12...0.0.13) (2023-11-30)
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.14](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.13...0.0.14) (2023-12-01)
+
+
+### Features
+
+* return the latest commit data to a package ([#68](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/68)) ([72be6c6](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/72be6c69e2c1012e7a69567ac1a8e8507e82d66d)), closes [#65](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/65)
+
 ## [0.0.13](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.12...0.0.13) (2023-11-30)
 
 

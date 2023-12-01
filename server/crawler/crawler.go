@@ -33,6 +33,8 @@ const (
 	onlyOneCommit = 1
 )
 
+var zeroValueTime = time.Time{}
+
 type GithubCrawler struct {
 	store store.KurtosisIndexerStore
 
@@ -178,7 +180,8 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 			apiRepositoryMetadata.GetName(),
 			apiRepositoryMetadata.GetRootPath(),
 			defaultKurtosisYamlFilename,
-			storedPackage.GetStars(), // this is optional here as it will be updated extractKurtosisPackageContent below
+			storedPackage.GetStars(),                           // this is optional here as it will be updated extractKurtosisPackageContent below
+			apiRepositoryMetadata.GetLastCommitTime().AsTime(), // this is optional here as it will be updated extractKurtosisPackageContent below
 		)
 		packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 		logrus.Debugf("Trying to update content of package '%s'", packageRepositoryLocator) // TODO: remove log line
@@ -247,7 +250,8 @@ func ReadPackage(
 		apiRepositoryMetadata.GetName(),
 		apiRepositoryMetadata.GetRootPath(),
 		defaultKurtosisYamlFilename,
-		noStartsSet, // it will be filled at the end of this function
+		noStartsSet,   // it will be updated extractKurtosisPackageContent below
+		zeroValueTime, // it will be updated extractKurtosisPackageContent below
 	)
 
 	githubClient, err := createGithubClient(ctx)
@@ -289,6 +293,7 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.RepositoryMetadata.Owner,
 		kurtosisPackageContent.RepositoryMetadata.Name,
 		kurtosisPackageContent.RepositoryMetadata.RootPath,
+		kurtosisPackageContent.RepositoryMetadata.LastCommitTime,
 	)
 
 	return api_constructors.NewKurtosisPackage(
@@ -301,7 +306,6 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.ParsingResult,
 		kurtosisPackageContent.ParsingTime,
 		kurtosisPackageContent.Version,
-		kurtosisPackageContent.RepositoryMetadata.LatestCommitDate,
 		kurtosisPackageArgsApi...,
 	)
 }
@@ -371,7 +375,7 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 				numberOfStars = uint64(repository.GetStargazersCount())
 			}
 
-			newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repoOwner, repository.GetName(), rootPath, defaultKurtosisYamlFilename, numberOfStars)
+			newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repoOwner, repository.GetName(), rootPath, defaultKurtosisYamlFilename, numberOfStars, zeroValueTime)
 			allPackageRepositoryMetadatas = append(allPackageRepositoryMetadatas, newPackageRepositoryMetadata)
 		}
 
@@ -497,6 +501,7 @@ func addOrUpdatePackageRepositoryMetadataWithStarsAndLastCommitDate(
 	packageRepositoryMetadata.Stars = uint64(repository.GetStargazersCount())
 
 	// add or update the latest commit date
+	// nolint:exhaustruct
 	commitListOptions := &github.CommitsListOptions{
 		ListOptions: github.ListOptions{
 			PerPage: onlyOneCommit, // it will return the latest one from the main branch
@@ -515,7 +520,7 @@ func addOrUpdatePackageRepositoryMetadataWithStarsAndLastCommitDate(
 		return stacktrace.NewError("an error occurred while trying to get the last commit form the received repository commits response '%+v'", repositoryCommits)
 	}
 	latestCommitGitHubTimestamp := latestCommit.GetCommit().GetCommitter().GetDate()
-	packageRepositoryMetadata.LatestCommitDate = latestCommitGitHubTimestamp.GetTime()
+	packageRepositoryMetadata.LastCommitTime = *latestCommitGitHubTimestamp.GetTime()
 
 	return nil
 }

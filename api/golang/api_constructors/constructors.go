@@ -21,7 +21,6 @@ func NewKurtosisPackage(
 	parsingResult string,
 	parsingTime *timestamppb.Timestamp,
 	version string,
-	latestCommitDate *time.Time,
 	args ...*generated.PackageArg,
 ) *generated.KurtosisPackage {
 	// construct the URL from the repository object for now. Remove it if it's not needed by the FE
@@ -39,7 +38,6 @@ func NewKurtosisPackage(
 		ParsingResult:         parsingResult,
 		ParsingTime:           parsingTime,
 		Version:               version,
-		LastUpdatedTime:       timestamppb.New(*latestCommitDate),
 	}
 }
 
@@ -58,13 +56,14 @@ func NewPackageRepository(
 	owner string,
 	name string,
 	rootPath string,
-
+	lastCommitTime time.Time,
 ) *generated.PackageRepository {
 	return &generated.PackageRepository{
-		BaseUrl:  baseUrl,
-		Owner:    owner,
-		Name:     name,
-		RootPath: rootPath,
+		BaseUrl:        baseUrl,
+		Owner:          owner,
+		Name:           name,
+		RootPath:       rootPath,
+		LastCommitTime: timestamppb.New(lastCommitTime),
 	}
 }
 

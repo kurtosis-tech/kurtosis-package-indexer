@@ -222,11 +222,6 @@ export class KurtosisPackage extends Message<KurtosisPackage> {
    */
   version = "";
 
-  /**
-   * @generated from field: google.protobuf.Timestamp last_updated_time = 12;
-   */
-  lastUpdatedTime?: Timestamp;
-
   constructor(data?: PartialMessage<KurtosisPackage>) {
     super();
     proto3.util.initPartial(data, this);
@@ -246,7 +241,6 @@ export class KurtosisPackage extends Message<KurtosisPackage> {
     { no: 9, name: "parsing_result", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 10, name: "parsing_time", kind: "message", T: Timestamp },
     { no: 11, name: "version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 12, name: "last_updated_time", kind: "message", T: Timestamp },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): KurtosisPackage {
@@ -400,6 +394,11 @@ export class PackageRepository extends Message<PackageRepository> {
    */
   rootPath = "";
 
+  /**
+   * @generated from field: google.protobuf.Timestamp last_commit_time = 5;
+   */
+  lastCommitTime?: Timestamp;
+
   constructor(data?: PartialMessage<PackageRepository>) {
     super();
     proto3.util.initPartial(data, this);
@@ -412,6 +411,7 @@ export class PackageRepository extends Message<PackageRepository> {
     { no: 2, name: "owner", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "root_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "last_commit_time", kind: "message", T: Timestamp },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PackageRepository {

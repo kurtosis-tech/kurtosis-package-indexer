@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"time"
 )
 
 func NewGetPackagesResponse(packages ...*generated.KurtosisPackage) *generated.GetPackagesResponse {
@@ -55,13 +56,14 @@ func NewPackageRepository(
 	owner string,
 	name string,
 	rootPath string,
-
+	lastCommitTime time.Time,
 ) *generated.PackageRepository {
 	return &generated.PackageRepository{
-		BaseUrl:  baseUrl,
-		Owner:    owner,
-		Name:     name,
-		RootPath: rootPath,
+		BaseUrl:        baseUrl,
+		Owner:          owner,
+		Name:           name,
+		RootPath:       rootPath,
+		LastCommitTime: timestamppb.New(lastCommitTime),
 	}
 }
 

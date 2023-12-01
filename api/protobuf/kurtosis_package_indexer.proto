@@ -52,7 +52,6 @@ message KurtosisPackage {
   google.protobuf.Timestamp parsing_time = 10;
 
   string version = 11;
-
 }
 
 message PackageArg {
@@ -92,4 +91,6 @@ message PackageRepository {
   string name = 3;
 
   string root_path = 4;
+
+  google.protobuf.Timestamp last_commit_time = 5;
 }

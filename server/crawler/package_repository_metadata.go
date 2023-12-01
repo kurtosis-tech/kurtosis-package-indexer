@@ -1,6 +1,9 @@
 package crawler
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type PackageRepositoryMetadata struct {
 	// Owner is the owner of the Github repository. It can be a Github organization or an individual user
@@ -18,6 +21,9 @@ type PackageRepositoryMetadata struct {
 
 	// Stars is the number of stars of the repository hosting the Kurtosis package
 	Stars uint64
+
+	// LastCommitTime the time of the last commit on the main branch
+	LastCommitTime time.Time
 }
 
 func NewPackageRepositoryMetadata(
@@ -26,6 +32,7 @@ func NewPackageRepositoryMetadata(
 	rootPath string,
 	kurtosisYamlFileName string,
 	stars uint64,
+	lastCommitTime time.Time,
 ) *PackageRepositoryMetadata {
 	return &PackageRepositoryMetadata{
 		Owner:                owner,
@@ -33,6 +40,7 @@ func NewPackageRepositoryMetadata(
 		RootPath:             rootPath,
 		KurtosisYamlFileName: kurtosisYamlFileName,
 		Stars:                stars,
+		LastCommitTime:       lastCommitTime,
 	}
 }
 

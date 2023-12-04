@@ -405,6 +405,11 @@ export class PackageRepository extends Message<PackageRepository> {
    */
   lastCommitTime?: Timestamp;
 
+  /**
+   * @generated from field: string default_branch = 6;
+   */
+  defaultBranch = "";
+
   constructor(data?: PartialMessage<PackageRepository>) {
     super();
     proto3.util.initPartial(data, this);
@@ -418,6 +423,7 @@ export class PackageRepository extends Message<PackageRepository> {
     { no: 3, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "root_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 5, name: "last_commit_time", kind: "message", T: Timestamp },
+    { no: 6, name: "default_branch", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PackageRepository {

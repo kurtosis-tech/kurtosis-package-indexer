@@ -59,6 +59,7 @@ func NewPackageRepository(
 	name string,
 	rootPath string,
 	lastCommitTime time.Time,
+	defaultBranch string,
 ) *generated.PackageRepository {
 	return &generated.PackageRepository{
 		BaseUrl:        baseUrl,
@@ -66,6 +67,7 @@ func NewPackageRepository(
 		Name:           name,
 		RootPath:       rootPath,
 		LastCommitTime: timestamppb.New(lastCommitTime),
+		DefaultBranch:  defaultBranch,
 	}
 }
 

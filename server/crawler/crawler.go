@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -30,9 +31,11 @@ const (
 
 	noStartsSet = 0
 
+	noDefaultBranchSet = ""
+
 	onlyOneCommit = 1
 
-	kurtosisPackageIconDefaultPathPattern = "https://raw.githubusercontent.com/%s/%s/main/kurtosis-package-icon.png"
+	kurtosisPackageIconImgName = "kurtosis-package-icon.png"
 )
 
 var zeroValueTime = time.Time{}
@@ -184,6 +187,7 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 			defaultKurtosisYamlFilename,
 			storedPackage.GetStars(),                           // this is optional here as it will be updated extractKurtosisPackageContent below
 			apiRepositoryMetadata.GetLastCommitTime().AsTime(), // this is optional here as it will be updated extractKurtosisPackageContent below
+			apiRepositoryMetadata.GetDefaultBranch(),           // this is optional here as it will be updated extractKurtosisPackageContent below
 		)
 		packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 		logrus.Debugf("Trying to update content of package '%s'", packageRepositoryLocator) // TODO: remove log line
@@ -252,8 +256,9 @@ func ReadPackage(
 		apiRepositoryMetadata.GetName(),
 		apiRepositoryMetadata.GetRootPath(),
 		defaultKurtosisYamlFilename,
-		noStartsSet,   // it will be updated extractKurtosisPackageContent below
-		zeroValueTime, // it will be updated extractKurtosisPackageContent below
+		noStartsSet,        // it will be updated extractKurtosisPackageContent below
+		zeroValueTime,      // it will be updated extractKurtosisPackageContent below
+		noDefaultBranchSet, // it will be updated extractKurtosisPackageContent below
 	)
 
 	githubClient, err := createGithubClient(ctx)
@@ -296,6 +301,8 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.RepositoryMetadata.Name,
 		kurtosisPackageContent.RepositoryMetadata.RootPath,
 		kurtosisPackageContent.RepositoryMetadata.LastCommitTime,
+		kurtosisPackageContent.RepositoryMetadata.DefaultBranch,
+
 	)
 
 	return api_constructors.NewKurtosisPackage(
@@ -378,7 +385,12 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 				numberOfStars = uint64(repository.GetStargazersCount())
 			}
 
-			newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repoOwner, repository.GetName(), rootPath, defaultKurtosisYamlFilename, numberOfStars, zeroValueTime)
+			defaultBranch := noDefaultBranchSet
+			if repository.GetDefaultBranch() != noDefaultBranchSet {
+				defaultBranch = repository.GetDefaultBranch()
+			}
+
+			newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repoOwner, repository.GetName(), rootPath, defaultKurtosisYamlFilename, numberOfStars, zeroValueTime, defaultBranch)
 			allPackageRepositoryMetadatas = append(allPackageRepositoryMetadatas, newPackageRepositoryMetadata)
 		}
 
@@ -473,7 +485,7 @@ func extractKurtosisPackageContent(
 
 	// check if the Kurtosis package icon exist in the package's root and get the URL
 	var packageIconURL string
-	packageIconURL, err = getPackageIconURLIfExists(repositoryOwner, repositoryName)
+	packageIconURL, err = getPackageIconURLIfExists(packageRepositoryMetadata)
 	if err != nil {
 		logrus.Warnf("an error occurred while getting and checking if the package icon exists in repository '%s'. Error was:\n%v", repositoryName, err.Error())
 	}
@@ -499,11 +511,14 @@ func addOrUpdatePackageRepositoryMetadataWithStarsAndLastCommitDate(
 	repositoryName string,
 	packageRepositoryMetadata *PackageRepositoryMetadata,
 ) error {
-	// add or update the stars
+
 	repository, _, err := client.Repositories.Get(ctx, repositoryOwner, repositoryName)
 	if err != nil {
 		return stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", repositoryName, repositoryOwner)
 	}
+	packageRepositoryMetadata.DefaultBranch = repository.GetDefaultBranch()
+
+	// add or update the stars
 	// is necessary to check for nil because if it's not returned in the response the number will be 0 when we call GetStargazersCount()
 	// and this could overwrite a previous value
 	if repository.StargazersCount == nil {
@@ -565,8 +580,15 @@ func normalizeName(name string) string {
 	return strings.ToLower(strings.Trim(name, " /"))
 }
 
-func getPackageIconURLIfExists(repositoryOwner string, repositoryName string) (string, error) {
-	packageIconURL := getPackageIconURL(repositoryOwner, repositoryName)
+func getPackageIconURLIfExists(packageRepositoryMetadata *PackageRepositoryMetadata) (string, error) {
+	repositoryDownloadRootURL, err := packageRepositoryMetadata.GetDownloadRootURL()
+	if err != nil {
+		return "", stacktrace.Propagate(err, "an error occurred getting the package repository download root URL")
+	}
+	packageIconURL, err := url.JoinPath(repositoryDownloadRootURL, kurtosisPackageIconImgName)
+	if err != nil {
+		return "", stacktrace.Propagate(err, "an error occurred generating the package icon URL for repository '%s'", packageRepositoryMetadata.Name)
+	}
 	response, err := http.Head(packageIconURL)
 	if err != nil {
 		return "", stacktrace.Propagate(err, "an error occurred while sending a HEAD request to '%s'", packageIconURL)
@@ -575,8 +597,4 @@ func getPackageIconURLIfExists(repositoryOwner string, repositoryName string) (s
 		return packageIconURL, nil
 	}
 	return "", nil
-}
-
-func getPackageIconURL(repositoryOwner string, repositoryName string) string {
-	return fmt.Sprintf(kurtosisPackageIconDefaultPathPattern, repositoryOwner, repositoryName)
 }

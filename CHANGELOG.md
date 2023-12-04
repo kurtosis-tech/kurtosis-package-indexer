@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.15](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.14...0.0.15) (2023-12-04)
+
+
+### Features
+
+* kurtosis package icon URL added in the returned package info ([#70](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/70)) ([5015cdb](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/5015cdbc733fea9262a8f1c27804435c6fde1a1d))
+
 ## [0.0.14](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.13...0.0.14) (2023-12-01)
 
 

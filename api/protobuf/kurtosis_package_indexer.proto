@@ -95,4 +95,6 @@ message PackageRepository {
   string root_path = 4;
 
   google.protobuf.Timestamp last_commit_time = 5;
+
+  string default_branch = 6;
 }

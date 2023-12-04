@@ -306,6 +306,7 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.ParsingResult,
 		kurtosisPackageContent.ParsingTime,
 		kurtosisPackageContent.Version,
+		kurtosisPackageContent.IconURL,
 		kurtosisPackageArgsApi...,
 	)
 }
@@ -468,6 +469,8 @@ func extractKurtosisPackageContent(
 		logrus.Warnf("an error occurred while adding or updating the repo starts and last commit date for repository '%s'. Error was:\n%v", repositoryName, err.Error())
 	}
 
+	noIconURLSoFar := ""
+
 	return NewKurtosisPackageContent(
 		packageRepositoryMetadata,
 		kurtosisPackageName,
@@ -477,6 +480,7 @@ func extractKurtosisPackageContent(
 		successfulParsingText,
 		nowAsUTC,
 		commitSHA,
+		noIconURLSoFar,
 		mainDotStarParsedContent.Arguments...,
 	), true, nil
 }

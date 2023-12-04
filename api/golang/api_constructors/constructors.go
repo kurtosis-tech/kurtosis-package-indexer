@@ -21,6 +21,7 @@ func NewKurtosisPackage(
 	parsingResult string,
 	parsingTime *timestamppb.Timestamp,
 	version string,
+	iconURL string,
 	args ...*generated.PackageArg,
 ) *generated.KurtosisPackage {
 	// construct the URL from the repository object for now. Remove it if it's not needed by the FE
@@ -38,6 +39,7 @@ func NewKurtosisPackage(
 		ParsingResult:         parsingResult,
 		ParsingTime:           parsingTime,
 		Version:               version,
+		IconUrl:               iconURL,
 	}
 }
 

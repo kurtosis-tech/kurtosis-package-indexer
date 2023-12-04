@@ -31,6 +31,8 @@ const (
 	noStartsSet = 0
 
 	onlyOneCommit = 1
+
+	kurtosisPackageIconDefaultPathPattern = "https://raw.githubusercontent.com/%s/%s/main/kurtosis-package-icon.png"
 )
 
 var zeroValueTime = time.Time{}
@@ -306,6 +308,7 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.ParsingResult,
 		kurtosisPackageContent.ParsingTime,
 		kurtosisPackageContent.Version,
+		kurtosisPackageContent.IconURL,
 		kurtosisPackageArgsApi...,
 	)
 }
@@ -468,6 +471,13 @@ func extractKurtosisPackageContent(
 		logrus.Warnf("an error occurred while adding or updating the repo starts and last commit date for repository '%s'. Error was:\n%v", repositoryName, err.Error())
 	}
 
+	// check if the Kurtosis package icon exist in the package's root and get the URL
+	var packageIconURL string
+	packageIconURL, err = getPackageIconURLIfExists(repositoryOwner, repositoryName)
+	if err != nil {
+		logrus.Warnf("an error occurred while getting and checking if the package icon exists in repository '%s'. Error was:\n%v", repositoryName, err.Error())
+	}
+
 	return NewKurtosisPackageContent(
 		packageRepositoryMetadata,
 		kurtosisPackageName,
@@ -477,6 +487,7 @@ func extractKurtosisPackageContent(
 		successfulParsingText,
 		nowAsUTC,
 		commitSHA,
+		packageIconURL,
 		mainDotStarParsedContent.Arguments...,
 	), true, nil
 }
@@ -552,4 +563,20 @@ func getTimeProtobufInUTC() *timestamppb.Timestamp {
 
 func normalizeName(name string) string {
 	return strings.ToLower(strings.Trim(name, " /"))
+}
+
+func getPackageIconURLIfExists(repositoryOwner string, repositoryName string) (string, error) {
+	packageIconURL := getPackageIconURL(repositoryOwner, repositoryName)
+	response, err := http.Head(packageIconURL)
+	if err != nil {
+		return "", stacktrace.Propagate(err, "an error occurred while sending a HEAD request to '%s'", packageIconURL)
+	}
+	if response.StatusCode == http.StatusOK || response.StatusCode == http.StatusPartialContent {
+		return packageIconURL, nil
+	}
+	return "", nil
+}
+
+func getPackageIconURL(repositoryOwner string, repositoryName string) string {
+	return fmt.Sprintf(kurtosisPackageIconDefaultPathPattern, repositoryOwner, repositoryName)
 }

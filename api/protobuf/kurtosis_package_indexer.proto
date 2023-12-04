@@ -52,6 +52,8 @@ message KurtosisPackage {
   google.protobuf.Timestamp parsing_time = 10;
 
   string version = 11;
+
+  string icon_url = 12;
 }
 
 message PackageArg {

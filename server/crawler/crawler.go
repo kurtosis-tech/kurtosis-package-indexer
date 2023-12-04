@@ -301,6 +301,8 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.RepositoryMetadata.Name,
 		kurtosisPackageContent.RepositoryMetadata.RootPath,
 		kurtosisPackageContent.RepositoryMetadata.LastCommitTime,
+		kurtosisPackageContent.RepositoryMetadata.DefaultBranch,
+
 	)
 
 	return api_constructors.NewKurtosisPackage(

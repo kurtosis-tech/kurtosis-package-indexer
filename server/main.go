@@ -45,6 +45,7 @@ func main() {
 		return
 	}
 	defer conn.Close()
+
 	fmt.Println("Successfully get the connection..")
 }
 
@@ -54,10 +55,11 @@ func GetConnection() (conn *sql.Conn, err error) {
 		Account:   "qtjzlxq-us27029",
 		User:      "",
 		Password:  "",
-		Database:  "",
+		Database:  "SEGMENT_EVENTS",
 		Schema:    "",
 		Warehouse: "",
 		Region:    "",
+		Role:      "PRODUCT_ANALYTICS_READER",
 	})
 	if err != nil {
 		log.Fatal("Error while DNS string: ", err)
@@ -77,13 +79,36 @@ func GetConnection() (conn *sql.Conn, err error) {
 
 	log.Println("Database Connection Successful..!")
 
-	conn, err = db.Conn(context.Background())
+	ctx := context.Background()
+	conn, err = db.Conn(ctx)
 	if err != nil {
 		log.Fatal("Error while open connection: ", err)
 		return conn, err
 	}
 
 	log.Println("Connection Successful..!")
+
+	query := "SELECT 1"
+	rows, err := conn.QueryContext(ctx, query) // no cancel is allowed
+	if err != nil {
+		log.Fatalf("failed to run a query. %v, err: %v", query, err)
+	}
+	defer rows.Close()
+	var v int
+	for rows.Next() {
+		err := rows.Scan(&v)
+		if err != nil {
+			log.Fatalf("failed to get result. err: %v", err)
+		}
+		if v != 1 {
+			log.Fatalf("failed to get 1. got: %v", v)
+		}
+	}
+	if rows.Err() != nil {
+		fmt.Printf("ERROR: %v\n", rows.Err())
+		return
+	}
+	fmt.Printf("Congrats! You have successfully run %v with Snowflake DB!\n", query)
 
 	return conn, err
 

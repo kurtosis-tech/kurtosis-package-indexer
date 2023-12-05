@@ -38,7 +38,6 @@ const (
 	kurtosisPackageIconImgName = "kurtosis-package-icon.png"
 )
 
-
 var supportedDockerComposeYmlFilenames = []string{
 	"compose.yml",
 	"compose.yaml",
@@ -283,7 +282,7 @@ func ReadPackage(
 	}
 	if !packageFound {
 		logrus.Warn("No Kurtosis package found.") // don't want to log provided package repository locator bc it's a security risk (eg. malicious data)
-		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files or a supported docker compose yaml file.", packageRepositoryLocator, kurtosisYamlFileName, starlarkMainDotStarFileName)
+		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files or a supported docker compose yaml file.", packageRepositoryLocator, defaultKurtosisYamlFilename, starlarkMainDotStarFileName)
 	}
 
 	kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)
@@ -312,7 +311,6 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.RepositoryMetadata.RootPath,
 		kurtosisPackageContent.RepositoryMetadata.LastCommitTime,
 		kurtosisPackageContent.RepositoryMetadata.DefaultBranch,
-
 	)
 
 	return api_constructors.NewKurtosisPackage(
@@ -568,6 +566,7 @@ func extractDockerComposePackageContent(
 		mainDotStarParsedContent.ReturnDescription,
 		successfulParsingText,
 		nowAsUTC,
+		"",
 		"",
 		mainDotStarParsedContent.Arguments...,
 	), true, nil

@@ -57,7 +57,7 @@ func GetConnection() (conn *sql.Conn, err error) {
 		Password:  "",
 		Database:  "SEGMENT_EVENTS",
 		Schema:    "",
-		Warehouse: "",
+		Warehouse: "SEGMENT_WH",
 		Region:    "",
 		Role:      "PRODUCT_ANALYTICS_READER",
 	})
@@ -88,21 +88,20 @@ func GetConnection() (conn *sql.Conn, err error) {
 
 	log.Println("Connection Successful..!")
 
-	query := "SELECT 1"
+	query := "SELECT PACKAGE_ID as package_name, COUNT(PACKAGE_ID) AS COUNT FROM KURTOSIS_METRICS_LIBRARY.KURTOSIS_RUN  GROUP BY PACKAGE_ID LIMIT 20;"
 	rows, err := conn.QueryContext(ctx, query) // no cancel is allowed
 	if err != nil {
 		log.Fatalf("failed to run a query. %v, err: %v", query, err)
 	}
 	defer rows.Close()
-	var v int
+	var v string
+	var v2 int
 	for rows.Next() {
-		err := rows.Scan(&v)
+		err := rows.Scan(&v, &v2)
 		if err != nil {
 			log.Fatalf("failed to get result. err: %v", err)
 		}
-		if v != 1 {
-			log.Fatalf("failed to get 1. got: %v", v)
-		}
+		logrus.Infof("Package %s --> %v", v, v2)
 	}
 	if rows.Err() != nil {
 		fmt.Printf("ERROR: %v\n", rows.Err())

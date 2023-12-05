@@ -9,12 +9,12 @@ import (
 func ParseKurtosisYaml(kurtosisYamlContent *github.RepositoryContent) (string, string, string, error) {
 	rawFileContent, err := kurtosisYamlContent.GetContent()
 	if err != nil {
-		return "", "", "", stacktrace.Propagate(err, "An error occurred getting the content of the '%s' file", kurtosisYamlFileName)
+		return "", "", "", stacktrace.Propagate(err, "An error occurred getting the content of the '%s' file", defaultKurtosisYamlFilename)
 	}
 
 	fileContent := new(KurtosisYaml)
 	if err = yaml.Unmarshal([]byte(rawFileContent), fileContent); err != nil {
-		return "", "", "", stacktrace.Propagate(err, "An error occurred parsing YAML for '%s'", kurtosisYamlFileName)
+		return "", "", "", stacktrace.Propagate(err, "An error occurred parsing YAML for '%s'", defaultKurtosisYamlFilename)
 	}
 
 	if fileContent.Name == "" {

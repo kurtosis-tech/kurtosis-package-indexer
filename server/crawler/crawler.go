@@ -10,6 +10,8 @@ import (
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -18,7 +20,7 @@ const (
 	crawlFrequency      = 5 * time.Minute
 	crawlIntervalBuffer = 15 * time.Second
 
-	kurtosisYamlFileName        = "kurtosis.yml"
+	defaultKurtosisYamlFilename = "kurtosis.yml"
 	starlarkMainDotStarFileName = "main.star"
 
 	githubPageSize = 100 // that's the maximum allowed by GitHub API
@@ -26,7 +28,16 @@ const (
 	githubUrl = "github.com"
 
 	successfulParsingText = "Parsed package content successfully"
+
+	noStartsSet = 0
+
+	noDefaultBranchSet = ""
+
+	onlyOneCommit = 1
+
+	kurtosisPackageIconImgName = "kurtosis-package-icon.png"
 )
+
 
 var supportedDockerComposeYmlFilenames = []string{
 	"compose.yml",
@@ -36,6 +47,8 @@ var supportedDockerComposeYmlFilenames = []string{
 	"docker_compose.yml",
 	"docker_compose.yaml",
 }
+
+var zeroValueTime = time.Time{}
 
 type GithubCrawler struct {
 	store store.KurtosisIndexerStore
@@ -125,7 +138,7 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 		}()
 	}
 
-	githubClient, err := CreateGithubClient(ctx)
+	githubClient, err := createGithubClient(ctx)
 	if err != nil {
 		logrus.Error("An error occurred while creating the github client. Aborting", err)
 		return
@@ -145,7 +158,7 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 		time.Since(tickerTime), crawlSuccessful, packageUpdated, packageAdded, packageRemoved)
 }
 
-func CreateGithubClient(ctx context.Context) (*github.Client, error) {
+func createGithubClient(ctx context.Context) (*github.Client, error) {
 	authenticatedHttpClient, err := AuthenticatedHttpClientFromEnvVar(ctx)
 	if err != nil {
 		logrus.Warnf("Unable to build authenticated Github client from environment variable. It will now try "+
@@ -153,7 +166,7 @@ func CreateGithubClient(ctx context.Context) (*github.Client, error) {
 		authenticatedHttpClient, err = AuthenticatedHttpClientFromS3BucketContent(ctx)
 		if err != nil {
 			logrus.Warnf("Unable to build authenticated Github client from S3 bucket. Error was:\n%v", err.Error())
-			return nil, stacktrace.NewError("Unable to build authenticated Github client. This is required so that"+
+			return nil, stacktrace.NewError("Unable to build authenticated Github client. This is required so that "+
 				"the indexer can search Github to retrieve Kurtosis package content. Skipping indexing for now, will "+
 				"retry in %v", crawlFrequency)
 		}
@@ -181,8 +194,10 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 			apiRepositoryMetadata.GetOwner(),
 			apiRepositoryMetadata.GetName(),
 			apiRepositoryMetadata.GetRootPath(),
-			kurtosisYamlFileName,
-			storedPackage.GetStars(), // this is optional here as it will be updated extractKurtosisPackageContent below
+			defaultKurtosisYamlFilename,
+			storedPackage.GetStars(),                           // this is optional here as it will be updated extractKurtosisPackageContent below
+			apiRepositoryMetadata.GetLastCommitTime().AsTime(), // this is optional here as it will be updated extractKurtosisPackageContent below
+			apiRepositoryMetadata.GetDefaultBranch(),           // this is optional here as it will be updated extractKurtosisPackageContent below
 		)
 		packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 		logrus.Debugf("Trying to update content of package '%s'", packageRepositoryLocator) // TODO: remove log line
@@ -244,16 +259,23 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 
 func ReadPackage(
 	ctx context.Context,
-	githubClient *github.Client,
 	apiRepositoryMetadata *generated.PackageRepository,
 ) (*generated.KurtosisPackage, error) {
 	kurtosisPackageMetadata := NewPackageRepositoryMetadata(
 		apiRepositoryMetadata.GetOwner(),
 		apiRepositoryMetadata.GetName(),
 		apiRepositoryMetadata.GetRootPath(),
-		kurtosisYamlFileName,
-		0, // We don't know (or care) what the star count is
+		defaultKurtosisYamlFilename,
+		noStartsSet,        // it will be updated extractKurtosisPackageContent below
+		zeroValueTime,      // it will be updated extractKurtosisPackageContent below
+		noDefaultBranchSet, // it will be updated extractKurtosisPackageContent below
 	)
+
+	githubClient, err := createGithubClient(ctx)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred while creating the github client")
+	}
+
 	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 	kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 	if err != nil {
@@ -288,6 +310,9 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.RepositoryMetadata.Owner,
 		kurtosisPackageContent.RepositoryMetadata.Name,
 		kurtosisPackageContent.RepositoryMetadata.RootPath,
+		kurtosisPackageContent.RepositoryMetadata.LastCommitTime,
+		kurtosisPackageContent.RepositoryMetadata.DefaultBranch,
+
 	)
 
 	return api_constructors.NewKurtosisPackage(
@@ -300,6 +325,7 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.ParsingResult,
 		kurtosisPackageContent.ParsingTime,
 		kurtosisPackageContent.Version,
+		kurtosisPackageContent.IconURL,
 		kurtosisPackageArgsApi...,
 	)
 }
@@ -338,7 +364,7 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 			PerPage: githubPageSize,
 		},
 	}
-	searchQuery := fmt.Sprintf("filename:%s", kurtosisYamlFileName)
+	searchQuery := fmt.Sprintf("filename:%s", defaultKurtosisYamlFilename)
 	for {
 		repoSearchResult, rawResponse, err := client.Search.Code(ctx, searchQuery, searchOpts)
 		if err != nil {
@@ -346,27 +372,19 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 		}
 
 		for _, searchResult := range repoSearchResult.CodeResults {
-			rootPath := strings.TrimSuffix(*searchResult.Path, kurtosisYamlFileName)
+			rootPath := strings.TrimSuffix(*searchResult.Path, defaultKurtosisYamlFilename)
 			if rootPath == *searchResult.Path {
 				// it means nothing was trimmed. It's likely invalid
 				logrus.Warnf("A search result was invalid because the path to the file did not finish with '%s'. "+
-					"Resository was: '%s', path was: '%s'", kurtosisYamlFileName, *searchResult.Repository.FullName,
+					"Resository was: '%s', path was: '%s'", defaultKurtosisYamlFilename, *searchResult.Repository.FullName,
 					*searchResult.Path)
 				continue
 			}
 
-			// It's not clear what to use in the `GetContents` function called below, as the `owner` field. We would prefer to
-			// just pass in githubRepository.GetFullName() and that's it, but it doesn't work
-			// So, to parse the owner name, we try both the `Login` and `Name` field, taking the first one that is not empty.
-			// For repo owned by `kurtosis-tech` for example, it's the Login field that will be used, as the Name one is empty
-			// If this is too fragile, worst case we can regexp parse `githubRepository.GetFullName()`
 			repository := searchResult.Repository
-			var repoOwner string
-			if repository.GetOwner().GetLogin() != "" {
-				repoOwner = repository.GetOwner().GetLogin()
-			} else if repository.GetOwner().GetName() != "" {
-				repoOwner = repository.GetOwner().GetName()
-			} else {
+
+			repoOwner, err := getRepositoryOwner(repository)
+			if err != nil {
 				logrus.Warnf("Search result '%s' was invalid b/c the Github repository has no owner",
 					repository.GetFullName())
 				continue
@@ -377,7 +395,12 @@ func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Cl
 				numberOfStars = uint64(repository.GetStargazersCount())
 			}
 
-			newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repoOwner, repository.GetName(), rootPath, kurtosisYamlFileName, numberOfStars)
+			defaultBranch := noDefaultBranchSet
+			if repository.GetDefaultBranch() != noDefaultBranchSet {
+				defaultBranch = repository.GetDefaultBranch()
+			}
+
+			newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repoOwner, repository.GetName(), rootPath, defaultKurtosisYamlFilename, numberOfStars, zeroValueTime, defaultBranch)
 			allPackageRepositoryMetadatas = append(allPackageRepositoryMetadatas, newPackageRepositoryMetadata)
 		}
 
@@ -396,7 +419,12 @@ func extractKurtosisPackageContent(
 	client *github.Client,
 	packageRepositoryMetadata *PackageRepositoryMetadata,
 ) (*KurtosisPackageContent, bool, error) {
-	repositoryFullName := fmt.Sprintf("%s/%s/%s", packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath)
+	repositoryOwner := packageRepositoryMetadata.Owner
+	repositoryName := packageRepositoryMetadata.Name
+	packageRootPath := packageRepositoryMetadata.RootPath
+	kurtosisYamlFilename := packageRepositoryMetadata.KurtosisYamlFileName
+
+	repositoryFullName := fmt.Sprintf("%s/%s/%s", repositoryOwner, repositoryName, packageRootPath)
 
 	repoGetContentOpts := &github.RepositoryContentGetOptions{
 		Ref: "",
@@ -404,11 +432,11 @@ func extractKurtosisPackageContent(
 
 	nowAsUTC := getTimeProtobufInUTC()
 
-	kurtosisYamlFilePath := fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, packageRepositoryMetadata.KurtosisYamlFileName)
+	kurtosisYamlFilePath := fmt.Sprintf("%s%s", packageRootPath, kurtosisYamlFilename)
 
-	// get contents of kurtosis yaml file from github
-	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisYamlFilePath, repoGetContentOpts)
-	if err != nil && resp != nil && resp.StatusCode == 404 {
+	// get contents of kurtosis yaml file from GitHub
+	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, repositoryOwner, repositoryName, kurtosisYamlFilePath, repoGetContentOpts)
+	if err != nil && resp != nil && resp.StatusCode == http.StatusNotFound {
 		logrus.Debugf("No '%s' file in repo '%s'", kurtosisYamlFilePath, repositoryFullName)
 		logrus.Debugf("Attempting to extract a docker compose based package...")
 		composePackageContent, composePackageFound, err := extractDockerComposePackageContent(ctx, client, packageRepositoryMetadata)
@@ -423,29 +451,30 @@ func extractKurtosisPackageContent(
 	} else if err != nil {
 		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s' - file '%s'", repositoryFullName, kurtosisYamlFilePath)
 	}
+
 	kurtosisPackageName, kurtosisPackageDescription, commitSHA, err := ParseKurtosisYaml(kurtosisYamlFileContentResult)
 	if err != nil {
 		logrus.Warnf("An error occurred parsing '%s' file in repository '%s'"+
 			"Error was:\n%v", kurtosisYamlFilePath, repositoryFullName, err.Error())
-		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", kurtosisYamlFileName)
+		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", defaultKurtosisYamlFilename)
 	}
 
-	// we check that the name set in kurtosis.yml matches the location on Github. If not, we exclude it from the
+	// we check that the name set in kurtosis.yml matches the location on GitHub. If not, we exclude it from the
 	// indexer b/c users won't be able to run it with `kurtosis run <PACKAGE_NAME>`
 	expectedPackageName := normalizeName(
 		fmt.Sprintf(
 			"%s/%s/%s/%s",
 			githubUrl,
-			packageRepositoryMetadata.Owner,
-			packageRepositoryMetadata.Name,
-			packageRepositoryMetadata.RootPath,
+			repositoryOwner,
+			repositoryName,
+			packageRootPath,
 		),
 	)
 	if normalizeName(kurtosisPackageName) != expectedPackageName {
 		nameError := stacktrace.NewError(
 			"The package '%s' is invalid because the name set in its '%s' doesn't match its Github URL (name set: '%s' - expected: '%s').",
 			repositoryFullName,
-			kurtosisYamlFileName,
+			defaultKurtosisYamlFilename,
 			kurtosisPackageName,
 			expectedPackageName,
 		)
@@ -453,10 +482,10 @@ func extractKurtosisPackageContent(
 		return nil, false, nameError
 	}
 
-	// get contents of main.star file from github
-	kurtosisMainDotStarFilePath := fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, starlarkMainDotStarFileName)
-	starlarkMainDotStartContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, kurtosisMainDotStarFilePath, repoGetContentOpts)
-	if err != nil && resp != nil && resp.StatusCode == 404 {
+	// get contents of main.star file from GitHub
+	kurtosisMainDotStarFilePath := fmt.Sprintf("%s%s", packageRootPath, starlarkMainDotStarFileName)
+	starlarkMainDotStartContentResult, _, resp, err := client.Repositories.GetContents(ctx, repositoryOwner, repositoryName, kurtosisMainDotStarFilePath, repoGetContentOpts)
+	if err != nil && resp != nil && resp.StatusCode == http.StatusNotFound {
 		logrus.Debugf("No '%s' file in repo '%s'", kurtosisMainDotStarFilePath, repositoryFullName)
 		return nil, false, nil
 	} else if err != nil {
@@ -469,6 +498,17 @@ func extractKurtosisPackageContent(
 		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", starlarkMainDotStarFileName)
 	}
 
+	if err != addOrUpdatePackageRepositoryMetadataWithStarsAndLastCommitDate(ctx, client, repositoryOwner, repositoryName, packageRepositoryMetadata) {
+		logrus.Warnf("an error occurred while adding or updating the repo starts and last commit date for repository '%s'. Error was:\n%v", repositoryName, err.Error())
+	}
+
+	// check if the Kurtosis package icon exist in the package's root and get the URL
+	var packageIconURL string
+	packageIconURL, err = getPackageIconURLIfExists(packageRepositoryMetadata)
+	if err != nil {
+		logrus.Warnf("an error occurred while getting and checking if the package icon exists in repository '%s'. Error was:\n%v", repositoryName, err.Error())
+	}
+
 	return NewKurtosisPackageContent(
 		packageRepositoryMetadata,
 		kurtosisPackageName,
@@ -478,6 +518,7 @@ func extractKurtosisPackageContent(
 		successfulParsingText,
 		nowAsUTC,
 		commitSHA,
+		packageIconURL,
 		mainDotStarParsedContent.Arguments...,
 	), true, nil
 }
@@ -532,6 +573,68 @@ func extractDockerComposePackageContent(
 	), true, nil
 }
 
+func addOrUpdatePackageRepositoryMetadataWithStarsAndLastCommitDate(
+	ctx context.Context,
+	client *github.Client,
+	repositoryOwner string,
+	repositoryName string,
+	packageRepositoryMetadata *PackageRepositoryMetadata,
+) error {
+
+	repository, _, err := client.Repositories.Get(ctx, repositoryOwner, repositoryName)
+	if err != nil {
+		return stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", repositoryName, repositoryOwner)
+	}
+	packageRepositoryMetadata.DefaultBranch = repository.GetDefaultBranch()
+
+	// add or update the stars
+	// is necessary to check for nil because if it's not returned in the response the number will be 0 when we call GetStargazersCount()
+	// and this could overwrite a previous value
+	if repository.StargazersCount == nil {
+		return stacktrace.NewError("no stars received when calling GitHub for repository '%s' it should return at least 0 stars", repositoryName)
+	}
+	packageRepositoryMetadata.Stars = uint64(repository.GetStargazersCount())
+
+	// add or update the latest commit date
+	// nolint:exhaustruct
+	commitListOptions := &github.CommitsListOptions{
+		ListOptions: github.ListOptions{
+			PerPage: onlyOneCommit, // it will return the latest one from the main branch
+		},
+	}
+	repositoryCommits, _, err := client.Repositories.ListCommits(ctx, repositoryOwner, repositoryName, commitListOptions)
+	if err != nil {
+		return stacktrace.Propagate(err, "an error occurred getting the commit list for repository '%s'", repositoryName)
+	}
+	if len(repositoryCommits) == 0 {
+		return stacktrace.NewError("zero commits were received when calling GitHub for getting the last commit for repository '%s'", repositoryName)
+	}
+
+	latestCommit := repositoryCommits[0]
+	if latestCommit == nil {
+		return stacktrace.NewError("an error occurred while trying to get the last commit form the received repository commits response '%+v'", repositoryCommits)
+	}
+	latestCommitGitHubTimestamp := latestCommit.GetCommit().GetCommitter().GetDate()
+	packageRepositoryMetadata.LastCommitTime = *latestCommitGitHubTimestamp.GetTime()
+
+	return nil
+}
+
+func getRepositoryOwner(repository *github.Repository) (string, error) {
+	// It's not clear what to use in the `GetContents` function called below, as the `owner` field. We would prefer to
+	// just pass in githubRepository.GetFullName() and that's it, but it doesn't work
+	// So, to parse the owner name, we try both the `Login` and `Name` field, taking the first one that is not empty.
+	// For repo owned by `kurtosis-tech` for example, it's the Login field that will be used, as the Name one is empty
+	// If this is too fragile, worst case we can regexp parse `githubRepository.GetFullName()`
+	if repository.GetOwner().GetLogin() != "" {
+		return repository.GetOwner().GetLogin(), nil
+	} else if repository.GetOwner().GetName() != "" {
+		return repository.GetOwner().GetName(), nil
+	}
+
+	return "", stacktrace.NewError("impossible to get owner from Github repository '%+v'", repository)
+}
+
 func getTimeInUTC() time.Time {
 	now := time.Now()
 	return now.UTC()
@@ -543,4 +646,23 @@ func getTimeProtobufInUTC() *timestamppb.Timestamp {
 
 func normalizeName(name string) string {
 	return strings.ToLower(strings.Trim(name, " /"))
+}
+
+func getPackageIconURLIfExists(packageRepositoryMetadata *PackageRepositoryMetadata) (string, error) {
+	repositoryDownloadRootURL, err := packageRepositoryMetadata.GetDownloadRootURL()
+	if err != nil {
+		return "", stacktrace.Propagate(err, "an error occurred getting the package repository download root URL")
+	}
+	packageIconURL, err := url.JoinPath(repositoryDownloadRootURL, kurtosisPackageIconImgName)
+	if err != nil {
+		return "", stacktrace.Propagate(err, "an error occurred generating the package icon URL for repository '%s'", packageRepositoryMetadata.Name)
+	}
+	response, err := http.Head(packageIconURL)
+	if err != nil {
+		return "", stacktrace.Propagate(err, "an error occurred while sending a HEAD request to '%s'", packageIconURL)
+	}
+	if response.StatusCode == http.StatusOK || response.StatusCode == http.StatusPartialContent {
+		return packageIconURL, nil
+	}
+	return "", nil
 }

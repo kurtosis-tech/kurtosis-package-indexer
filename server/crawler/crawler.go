@@ -254,7 +254,6 @@ func ReadPackage(
 		kurtosisYamlFileName,
 		0, // We don't know (or care) what the star count is
 	)
-	logrus.Debug(kurtosisPackageMetadata)
 	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 	kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 	if err != nil {

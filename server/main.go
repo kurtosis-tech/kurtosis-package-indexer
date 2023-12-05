@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated/generatedconnect"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/crawler"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/resource"
@@ -9,6 +11,8 @@ import (
 	connect_server "github.com/kurtosis-tech/kurtosis/connect-server"
 	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
+	sf "github.com/snowflakedb/gosnowflake"
+	"log"
 	"path"
 	"runtime"
 	"strings"
@@ -31,6 +35,61 @@ const (
 	emptyFunctionName         = ""
 )
 
+// for sharing a single DB instance
+var db *sql.DB
+
+func main() {
+	conn, err := GetConnection()
+	if err != nil {
+		log.Fatal("Error while connection ", err)
+		return
+	}
+	defer conn.Close()
+	fmt.Println("Successfully get the connection..")
+}
+
+func GetConnection() (conn *sql.Conn, err error) {
+
+	dns, err := sf.DSN(&sf.Config{
+		Account:   "qtjzlxq-us27029",
+		User:      "",
+		Password:  "",
+		Database:  "",
+		Schema:    "",
+		Warehouse: "",
+		Region:    "",
+	})
+	if err != nil {
+		log.Fatal("Error while DNS string: ", err)
+		return conn, err
+	}
+
+	db, err := sql.Open("snowflake", dns)
+	if err != nil {
+		log.Fatal("Error while open DB: ", err)
+		return conn, err
+	}
+	defer db.Close()
+
+	db.SetMaxIdleConns(100)
+	db.SetMaxOpenConns(50)
+	db.SetConnMaxLifetime(3 * time.Second)
+
+	log.Println("Database Connection Successful..!")
+
+	conn, err = db.Conn(context.Background())
+	if err != nil {
+		log.Fatal("Error while open connection: ", err)
+		return conn, err
+	}
+
+	log.Println("Connection Successful..!")
+
+	return conn, err
+
+}
+
+/*
 func main() {
 	ctx := context.Background()
 	configureLogger()
@@ -54,7 +113,7 @@ func main() {
 		exitFailure(err)
 	}
 	logrus.Exit(successExitCode)
-}
+}*/
 
 func runServer(indexerStore store.KurtosisIndexerStore, indexerCrawler *crawler.GithubCrawler) error {
 	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer(indexerStore, indexerCrawler)

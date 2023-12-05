@@ -45,9 +45,9 @@ func main() {
 	// Set up the crawler which will populate the store on a periodical basis
 	indexerCtx, cancelFunc := context.WithCancel(ctx)
 	indexerCrawler := crawler.NewGithubCrawler(indexerCtx, indexerStore)
-	if err := indexerCrawler.Schedule(false); err != nil {
-		exitFailure(err)
-	}
+	//if err := indexerCrawler.Schedule(false); err != nil {
+	//	exitFailure(err)
+	//}
 	defer cancelFunc()
 
 	if err := runServer(indexerStore, indexerCrawler); err != nil {

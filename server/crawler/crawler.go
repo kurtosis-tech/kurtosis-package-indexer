@@ -254,6 +254,7 @@ func ReadPackage(
 		kurtosisYamlFileName,
 		0, // We don't know (or care) what the star count is
 	)
+	logrus.Debug(kurtosisPackageMetadata)
 	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 	kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata)
 	if err != nil {
@@ -498,7 +499,7 @@ func extractDockerComposePackageContent(
 	var dockerComposeYamlFileContentResult *github.RepositoryContent
 	var dockerComposeYamlFilePath string
 	for _, dockerComposeYamlVariation := range supportedDockerComposeYmlFilenames {
-		dockerComposeYamlFilePath = fmt.Sprintf("%s%s", packageRepositoryMetadata.RootPath, dockerComposeYamlVariation)
+		dockerComposeYamlFilePath = fmt.Sprintf("%s/%s", packageRepositoryMetadata.RootPath, dockerComposeYamlVariation)
 
 		yamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, dockerComposeYamlFilePath, repoGetContentOpts)
 		if err == nil && resp != nil && resp.StatusCode != 404 {
@@ -510,10 +511,12 @@ func extractDockerComposePackageContent(
 		return nil, false, nil
 	}
 
+	// TODO: Parse dockerComposeYamlFileContentResult for metadata about the compose file (similar to main dot star)
+
 	// no notion of main dot star in docker compose so leave fields blank for now
 	mainDotStarParsedContent := KurtosisMainDotStar{
-		Description:       "", // TODO: input description
-		ReturnDescription: "", // TODO: Input return description
+		Description:       "",
+		ReturnDescription: "",
 		Arguments:         []*StarlarkFunctionArgument{},
 	}
 

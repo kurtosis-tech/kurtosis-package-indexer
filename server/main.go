@@ -3,16 +3,14 @@ package main
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated/generatedconnect"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/crawler"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/resource"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
 	connect_server "github.com/kurtosis-tech/kurtosis/connect-server"
+	"github.com/kurtosis-tech/stacktrace"
 	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
-	sf "github.com/snowflakedb/gosnowflake"
-	"log"
 	"path"
 	"runtime"
 	"strings"
@@ -39,82 +37,6 @@ const (
 var db *sql.DB
 
 func main() {
-	conn, err := GetConnection()
-	if err != nil {
-		log.Fatal("Error while connection ", err)
-		return
-	}
-	defer conn.Close()
-
-	fmt.Println("Successfully get the connection..")
-}
-
-func GetConnection() (conn *sql.Conn, err error) {
-
-	dns, err := sf.DSN(&sf.Config{
-		Account:   "qtjzlxq-us27029",
-		User:      "",
-		Password:  "",
-		Database:  "SEGMENT_EVENTS",
-		Schema:    "",
-		Warehouse: "SEGMENT_WH",
-		Region:    "",
-		Role:      "PRODUCT_ANALYTICS_READER",
-	})
-	if err != nil {
-		log.Fatal("Error while DNS string: ", err)
-		return conn, err
-	}
-
-	db, err := sql.Open("snowflake", dns)
-	if err != nil {
-		log.Fatal("Error while open DB: ", err)
-		return conn, err
-	}
-	defer db.Close()
-
-	db.SetMaxIdleConns(100)
-	db.SetMaxOpenConns(50)
-	db.SetConnMaxLifetime(3 * time.Second)
-
-	log.Println("Database Connection Successful..!")
-
-	ctx := context.Background()
-	conn, err = db.Conn(ctx)
-	if err != nil {
-		log.Fatal("Error while open connection: ", err)
-		return conn, err
-	}
-
-	log.Println("Connection Successful..!")
-
-	query := "SELECT PACKAGE_ID as package_name, COUNT(PACKAGE_ID) AS COUNT FROM KURTOSIS_METRICS_LIBRARY.KURTOSIS_RUN  GROUP BY PACKAGE_ID LIMIT 20;"
-	rows, err := conn.QueryContext(ctx, query) // no cancel is allowed
-	if err != nil {
-		log.Fatalf("failed to run a query. %v, err: %v", query, err)
-	}
-	defer rows.Close()
-	var v string
-	var v2 int
-	for rows.Next() {
-		err := rows.Scan(&v, &v2)
-		if err != nil {
-			log.Fatalf("failed to get result. err: %v", err)
-		}
-		logrus.Infof("Package %s --> %v", v, v2)
-	}
-	if rows.Err() != nil {
-		fmt.Printf("ERROR: %v\n", rows.Err())
-		return
-	}
-	fmt.Printf("Congrats! You have successfully run %v with Snowflake DB!\n", query)
-
-	return conn, err
-
-}
-
-/*
-func main() {
 	ctx := context.Background()
 	configureLogger()
 
@@ -127,7 +49,10 @@ func main() {
 
 	// Set up the crawler which will populate the store on a periodical basis
 	indexerCtx, cancelFunc := context.WithCancel(ctx)
-	indexerCrawler := crawler.NewGithubCrawler(indexerCtx, indexerStore)
+	indexerCrawler, err := crawler.CreateGithubCrawler(indexerCtx, indexerStore)
+	if err != nil {
+		exitFailure(stacktrace.Propagate(err, "an error occurred creating the GitHubCrawler while bootstrapping the server"))
+	}
 	if err := indexerCrawler.Schedule(false); err != nil {
 		exitFailure(err)
 	}
@@ -137,7 +62,7 @@ func main() {
 		exitFailure(err)
 	}
 	logrus.Exit(successExitCode)
-}*/
+}
 
 func runServer(indexerStore store.KurtosisIndexerStore, indexerCrawler *crawler.GithubCrawler) error {
 	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer(indexerStore, indexerCrawler)

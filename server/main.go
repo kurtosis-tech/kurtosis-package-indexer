@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated/generatedconnect"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/crawler"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/metrics"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/resource"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
 	connect_server "github.com/kurtosis-tech/kurtosis/connect-server"
@@ -33,9 +33,6 @@ const (
 	emptyFunctionName         = ""
 )
 
-// for sharing a single DB instance
-var db *sql.DB
-
 func main() {
 	ctx := context.Background()
 	configureLogger()
@@ -47,16 +44,26 @@ func main() {
 	}
 	defer indexerStore.Close()
 
-	// Set up the crawler which will populate the store on a periodical basis
 	indexerCtx, cancelFunc := context.WithCancel(ctx)
-	indexerCrawler, err := crawler.CreateGithubCrawler(indexerCtx, indexerStore)
+	defer cancelFunc()
+
+	// Set up the metrics reporter which will query the metrics storage on a periodical basis
+	metricsReporter, err := metrics.CreateReporter(indexerCtx)
+	if err != nil {
+		exitFailure(stacktrace.Propagate(err, "an error occurred creating the metrics reporter while bootstrapping the server"))
+	} // TODO check if we should not abort here on the first deploy
+	if err := metricsReporter.Schedule(false); err != nil {
+		exitFailure(stacktrace.Propagate(err, "an error occurred scheduling the metrics reporter while bootstrapping the server"))
+	}
+
+	// Set up the crawler which will populate the store on a periodical basis
+	indexerCrawler, err := crawler.NewGitHubCrawler(indexerCtx, indexerStore, metricsReporter)
 	if err != nil {
 		exitFailure(stacktrace.Propagate(err, "an error occurred creating the GitHubCrawler while bootstrapping the server"))
 	}
 	if err := indexerCrawler.Schedule(false); err != nil {
-		exitFailure(err)
+		exitFailure(stacktrace.Propagate(err, "an error occurred scheduling the GitHubCrawler while bootstrapping the server"))
 	}
-	defer cancelFunc()
 
 	if err := runServer(indexerStore, indexerCrawler); err != nil {
 		exitFailure(err)

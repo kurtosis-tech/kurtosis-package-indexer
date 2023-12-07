@@ -8,6 +8,7 @@ import (
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/metrics"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/ticker"
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -40,34 +41,24 @@ const (
 )
 
 var (
-	zeroValueTime        = time.Time{}
-	zeroPackageRunCounts = metrics.PackagesRunCount{}
+	zeroValueTime = time.Time{}
 )
 
 type GithubCrawler struct {
-	store store.KurtosisIndexerStore
-
-	ctx    context.Context
-	ticker *Ticker
-
-	// it should be used only by the scheduled job for now because we don't want to execute a Snowflake query on each user's request
-	// now the ReadPackage (which is the endpoint exposed to users) function does not have access to it, we should keep it on this way
+	store           store.KurtosisIndexerStore
+	ctx             context.Context
+	ticker          *ticker.Ticker
 	metricsReporter *metrics.Reporter
 }
 
-func CreateGithubCrawler(ctx context.Context, store store.KurtosisIndexerStore) (*GithubCrawler, error) {
-
-	// TODO this should not be injected inside the GitHubCrawler but decoupling it will demand a bigger refactor
-	// TODO where we create a scheduler outside the crawler and it will include also the metrics provider
-	metricsReporter, err := metrics.CreateReporter()
-	if err != nil {
-		return nil, stacktrace.Propagate(err, "an error occurred creating the metrics reporter")
-	} // TODO check if we should not abort here on the first deploy
+func NewGitHubCrawler(ctx context.Context, store store.KurtosisIndexerStore, metricsReporter *metrics.Reporter) (*GithubCrawler, error) {
 
 	newCrawler := &GithubCrawler{
-		store:           store,
-		ctx:             ctx,
-		ticker:          nil,
+		store:  store,
+		ctx:    ctx,
+		ticker: nil,
+		// TODO the metrics reporter should not be injected inside the GitHubCrawler but decoupling it will demand a bigger refactor
+		// TODO it demands creating a new component that receives both objects the Github crawler and the metrics reporter and call both and deliver the info
 		metricsReporter: metricsReporter,
 	}
 
@@ -91,7 +82,7 @@ func (crawler *GithubCrawler) Schedule(forceRunNow bool) error {
 	}
 	logrus.Infof("Crawler starting with an initial delay of '%v' and a period of '%v'", initialDelay, crawlFrequency)
 
-	crawler.ticker = NewTicker(initialDelay, crawlFrequency)
+	crawler.ticker = ticker.NewTicker(initialDelay, crawlFrequency)
 	go func() {
 		for {
 			select {
@@ -105,6 +96,41 @@ func (crawler *GithubCrawler) Schedule(forceRunNow bool) error {
 		}
 	}()
 	return nil
+}
+
+func (crawler *GithubCrawler) ReadPackage(
+	ctx context.Context,
+	apiRepositoryMetadata *generated.PackageRepository,
+) (*generated.KurtosisPackage, error) {
+	kurtosisPackageMetadata := NewPackageRepositoryMetadata(
+		apiRepositoryMetadata.GetOwner(),
+		apiRepositoryMetadata.GetName(),
+		apiRepositoryMetadata.GetRootPath(),
+		defaultKurtosisYamlFilename,
+		noStartsSet,        // it will be updated extractKurtosisPackageContent below
+		zeroValueTime,      // it will be updated extractKurtosisPackageContent below
+		noDefaultBranchSet, // it will be updated extractKurtosisPackageContent below
+	)
+
+	githubClient, err := createGithubClient(ctx)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred while creating the github client")
+	}
+
+	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
+
+	packagesRunCount := crawler.getPackageRunMetricsIfReporterIsConfigured()
+	kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata, packagesRunCount)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
+	}
+	if !packageFound {
+		logrus.Warn("No Kurtosis package found.") // don't want to log provided package repository locator bc it's a security risk (e.g. malicious data)
+		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageRepositoryLocator, defaultKurtosisYamlFilename, starlarkMainDotStarFileName)
+	}
+
+	kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)
+	return kurtosisPackageApi, nil
 }
 
 func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime time.Time) {
@@ -153,19 +179,8 @@ func (crawler *GithubCrawler) doCrawlNoFailure(ctx context.Context, tickerTime t
 		return
 	}
 
-	// get the package run metrics if we have a metrics reporter
-	var packagesRunCount metrics.PackagesRunCount
-	if crawler.metricsReporter != nil {
-		// requesting the metrics here because we want to query the metrics storage only in the job task and not on each user's request
-		packagesRunCount, err = crawler.metricsReporter.GetPackageRunMetrics(ctx)
-		if err != nil {
-			// we don't abort here because is it better to have a degraded package info (without the run count) than not having any data
-			logrus.Errorf("an error occurred getting the package run metrics. Error was:\n%s", err.Error())
-		}
-	}
-
 	logrus.Info("Crawling Github for Kurtosis packages")
-	packageUpdated, packageAdded, packageRemoved, err := crawler.crawlKurtosisPackages(ctx, githubClient, packagesRunCount)
+	packageUpdated, packageAdded, packageRemoved, err := crawler.crawlKurtosisPackages(ctx, githubClient)
 	if err != nil {
 		logrus.Errorf("An error occurred crawling Github for Kurtosis packages. The last crawl datetime"+
 			"will be reverted to its previous value '%v'. This node will try crawling again in '%v'. "+
@@ -198,16 +213,15 @@ func createGithubClient(ctx context.Context) (*github.Client, error) {
 func (crawler *GithubCrawler) crawlKurtosisPackages(
 	ctx context.Context,
 	githubClient *github.Client,
-	packagesRunCount metrics.PackagesRunCount,
 ) (int, int, int, error) {
 	// First, we refresh the packages that are currently stored, and remove them if they don't exist anymore
-	kurtosisPackageUpdated, kurtosisPackageRemoved, err := crawler.updateOrDeleteStoredPackages(ctx, githubClient, packagesRunCount)
+	kurtosisPackageUpdated, kurtosisPackageRemoved, err := crawler.updateOrDeleteStoredPackages(ctx, githubClient)
 	if err != nil {
 		return 0, 0, 0, stacktrace.Propagate(err, "an error occurred updating or deleting the stored packages")
 	}
 
 	// Then we search for potential new packages and add they into the store
-	kurtosisPackageAdded, err := crawler.addNewPackages(ctx, githubClient, kurtosisPackageUpdated, packagesRunCount)
+	kurtosisPackageAdded, err := crawler.addNewPackages(ctx, githubClient, kurtosisPackageUpdated)
 	if err != nil {
 		return 0, 0, 0,
 			stacktrace.Propagate(err, "an error occurred adding new packages")
@@ -215,7 +229,7 @@ func (crawler *GithubCrawler) crawlKurtosisPackages(
 	return len(kurtosisPackageUpdated), len(kurtosisPackageAdded), len(kurtosisPackageRemoved), nil
 }
 
-func (crawler *GithubCrawler) updateOrDeleteStoredPackages(ctx context.Context, githubClient *github.Client, packagesRunCount metrics.PackagesRunCount) (map[string]bool, map[string]bool, error) {
+func (crawler *GithubCrawler) updateOrDeleteStoredPackages(ctx context.Context, githubClient *github.Client) (map[string]bool, map[string]bool, error) {
 	kurtosisPackageUpdated := map[string]bool{}
 	kurtosisPackageRemoved := map[string]bool{}
 
@@ -237,6 +251,8 @@ func (crawler *GithubCrawler) updateOrDeleteStoredPackages(ctx context.Context, 
 		)
 		packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 		logrus.Debugf("Trying to update content of package '%s'", packageRepositoryLocator) // TODO: remove log line
+
+		packagesRunCount := crawler.getPackageRunMetricsIfReporterIsConfigured()
 		kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata, packagesRunCount)
 		if err != nil {
 			return nil, nil, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
@@ -262,7 +278,7 @@ func (crawler *GithubCrawler) updateOrDeleteStoredPackages(ctx context.Context, 
 	return kurtosisPackageUpdated, kurtosisPackageRemoved, nil
 }
 
-func (crawler *GithubCrawler) addNewPackages(ctx context.Context, githubClient *github.Client, kurtosisPackageUpdated map[string]bool, packagesRunCount metrics.PackagesRunCount) (map[string]bool, error) {
+func (crawler *GithubCrawler) addNewPackages(ctx context.Context, githubClient *github.Client, kurtosisPackageUpdated map[string]bool) (map[string]bool, error) {
 	logrus.Debugf("Going to search for potential new packages now...")
 	allKurtosisPackageLocatorsFromSearch, err := searchForKurtosisPackageRepositories(ctx, githubClient)
 	if err != nil {
@@ -277,6 +293,7 @@ func (crawler *GithubCrawler) addNewPackages(ctx context.Context, githubClient *
 			continue
 		}
 
+		packagesRunCount := crawler.getPackageRunMetricsIfReporterIsConfigured()
 		kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata, packagesRunCount)
 		if err != nil {
 			logrus.Warnf("An error occurred extracting content for Kurtosis package at '%s'", packageRepositoryLocator)
@@ -299,39 +316,16 @@ func (crawler *GithubCrawler) addNewPackages(ctx context.Context, githubClient *
 	return kurtosisPackageAdded, nil
 }
 
-func ReadPackage(
-	ctx context.Context,
-	apiRepositoryMetadata *generated.PackageRepository,
-) (*generated.KurtosisPackage, error) {
-	kurtosisPackageMetadata := NewPackageRepositoryMetadata(
-		apiRepositoryMetadata.GetOwner(),
-		apiRepositoryMetadata.GetName(),
-		apiRepositoryMetadata.GetRootPath(),
-		defaultKurtosisYamlFilename,
-		noStartsSet,        // it will be updated extractKurtosisPackageContent below
-		zeroValueTime,      // it will be updated extractKurtosisPackageContent below
-		noDefaultBranchSet, // it will be updated extractKurtosisPackageContent below
-	)
+// getPackageRunMetricsIfReporterIsConfigured get the package run metrics if there is a metrics reporter configured
+func (crawler *GithubCrawler) getPackageRunMetricsIfReporterIsConfigured() metrics.PackagesRunCount {
 
-	githubClient, err := createGithubClient(ctx)
-	if err != nil {
-		return nil, stacktrace.Propagate(err, "an error occurred while creating the github client")
+	var packagesRunCount metrics.PackagesRunCount
+	if crawler.metricsReporter != nil {
+		packagesRunCount = crawler.metricsReporter.GetPackageRunMetrics()
+	} else {
+		logrus.Warningf("Imposible to get the package run metrics because there is not metrics reporter configured")
 	}
-
-	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
-
-	// passing zeroPackageRunCounts because is not necessary for this endpoint
-	kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata, zeroPackageRunCounts)
-	if err != nil {
-		return nil, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
-	}
-	if !packageFound {
-		logrus.Warn("No Kurtosis package found.") // don't want to log provided package repository locator bc it's a security risk (e.g. malicious data)
-		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageRepositoryLocator, defaultKurtosisYamlFilename, starlarkMainDotStarFileName)
-	}
-
-	kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)
-	return kurtosisPackageApi, nil
+	return packagesRunCount
 }
 
 func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *generated.KurtosisPackage {

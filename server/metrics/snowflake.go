@@ -3,6 +3,7 @@ package metrics
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/sirupsen/logrus"
 	sf "github.com/snowflakedb/gosnowflake"
@@ -28,6 +29,16 @@ const (
 	SnowflakeDBMaxOpenConnections = 5
 	SnowflakeDBConnMaxLifeTime    = 5 * time.Second
 	SnowflakeQueryTimeout         = 60 * time.Second
+
+	kurtosianUserSQLQuery = "SELECT USER_ID FROM SEGMENT_EVENTS.KURTOSIS_METRICS_LIBRARY.KNOWN_USERS WHERE IS_KURTOSIAN=TRUE"
+	isCISQLQueryCondition = "FALSE"
+
+	// This query is pretty much the same we have in the "Top Usage Packages" table in the Snowflake "usage metrics dashboard"
+	selectPackageRunMetricSQLQueryFormat = `SELECT IFNULL(kp.name, k.package_id) as package_name, COUNT(k.PACKAGE_ID) AS COUNT 
+FROM SEGMENT_EVENTS.KURTOSIS_METRICS_LIBRARY.KURTOSIS_RUN k 
+LEFT JOIN SEGMENT_EVENTS.KURTOSIS_METRICS_LIBRARY.KNOWN_PACKAGES kp ON k.PACKAGE_ID = kp.PACKAGE_ID 
+                                                                    WHERE k.USER_ID NOT IN ( %s ) AND k.IS_CI = %s 
+                                                                    GROUP BY package_name;`
 )
 
 type snowflake struct {
@@ -55,8 +66,7 @@ func (snowflake *snowflake) runQueryAndGetPackageRunMetrics(ctx context.Context)
 
 	ctxWithTimeout, _ := context.WithTimeout(ctx, SnowflakeQueryTimeout)
 
-	// TODO put it in a constant
-	query := "SELECT PACKAGE_ID as package_name, COUNT(PACKAGE_ID) AS COUNT FROM KURTOSIS_METRICS_LIBRARY.KURTOSIS_RUN  GROUP BY PACKAGE_ID LIMIT 20;"
+	query := fmt.Sprintf(selectPackageRunMetricSQLQueryFormat, kurtosianUserSQLQuery, isCISQLQueryCondition)
 	rows, err := conn.QueryContext(ctxWithTimeout, query)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred running the query for getting the run metrics")
@@ -69,7 +79,9 @@ func (snowflake *snowflake) runQueryAndGetPackageRunMetrics(ctx context.Context)
 	var packageName string
 	var count uint32
 	result := PackagesRunCount{}
+	var rowCounter int //TODO remove
 	for rows.Next() {
+		rowCounter++
 		if err := rows.Scan(&packageName, &count); err != nil {
 			return nil, stacktrace.Propagate(err, "an error occurred scanning the query result rows")
 		}
@@ -109,7 +121,7 @@ func (snowflake *snowflake) getSnowflakeDB() (*sql.DB, error) {
 	defer func() {
 		/*if err := db.Close(); err != nil {
 			logrus.Warningf("an error occurred closing the Snowflake dB")
-		}*/
+		}*/ // TODO handle this
 	}()
 
 	// these values should be small because they will be used only for the job task,

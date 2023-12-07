@@ -9,15 +9,17 @@ import (
 )
 
 type InMemoryStore struct {
-	lastCrawlTime time.Time
+	lastCrawlTime                    time.Time
+	lastMetricsReporterQueryDatetime time.Time
 
 	packages map[string]*generated.KurtosisPackage
 }
 
 func newInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
-		lastCrawlTime: time.Time{},
-		packages:      map[string]*generated.KurtosisPackage{},
+		lastCrawlTime:                    time.Time{},
+		lastMetricsReporterQueryDatetime: time.Time{},
+		packages:                         map[string]*generated.KurtosisPackage{},
 	}
 }
 
@@ -53,4 +55,13 @@ func (store *InMemoryStore) UpdateLastCrawlDatetime(_ context.Context, lastCrawl
 
 func (store *InMemoryStore) GetLastCrawlDatetime(_ context.Context) (time.Time, error) {
 	return store.lastCrawlTime, nil
+}
+
+func (store *InMemoryStore) UpdateLastMetricsQueryDatetime(ctx context.Context, lastMetricsQueryTime time.Time) error {
+	store.lastMetricsReporterQueryDatetime = lastMetricsQueryTime
+	return nil
+}
+
+func (store *InMemoryStore) GetLastMetricsQueryDatetime(_ context.Context) (time.Time, error) {
+	return store.lastMetricsReporterQueryDatetime, nil
 }

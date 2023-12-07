@@ -136,3 +136,39 @@ func (store *EtcdBackedStore) GetLastCrawlDatetime(ctx context.Context) (time.Ti
 	}
 	return lastCrawlDatetime, nil
 }
+
+func (store *EtcdBackedStore) UpdateLastMetricsQueryDatetime(ctx context.Context, lastMetricsQueryTime time.Time) error {
+	serializedDatetime, err := lastMetricsQueryTime.MarshalBinary()
+	if err != nil {
+		return stacktrace.Propagate(err, "An error occurred serializing time information '%v' prior to persisting it to the etcd database", lastMetricsQueryTime)
+	}
+
+	lastMetricsQueryDatetimeKeyBytes := compositeMetadataKey(lastMetricsReporterQueryDatetimeKey)
+	_, err = store.client.Put(ctx, string(lastMetricsQueryDatetimeKeyBytes), string(serializedDatetime))
+	if err != nil {
+		return stacktrace.Propagate(err, "An error occurred persisting serialized time info to etcd database")
+	}
+	return nil
+}
+
+func (store *EtcdBackedStore) GetLastMetricsQueryDatetime(ctx context.Context) (time.Time, error) {
+	lastMetricsQueryDatetime := time.Time{}
+	lastMetricsQueryDatetimeKeyBytes := compositeMetadataKey(lastMetricsReporterQueryDatetimeKey)
+	resp, err := store.client.Get(ctx, string(lastMetricsQueryDatetimeKeyBytes))
+	if err != nil {
+		return lastMetricsQueryDatetime, stacktrace.Propagate(err, "An error occurred retrieving metadata from etcd database")
+	}
+
+	if len(resp.Kvs) == 0 {
+		// no data stored yet
+		return lastMetricsQueryDatetime, nil
+	}
+	if len(resp.Kvs) > 1 {
+		return lastMetricsQueryDatetime, stacktrace.Propagate(err, "More than one value is stored with the key '%s' in etcd. This is unexpected", string(lastMetricsQueryDatetimeKeyBytes))
+	}
+	serializedDatetime := resp.Kvs[0].Value
+	if err = lastMetricsQueryDatetime.UnmarshalBinary(serializedDatetime); err != nil {
+		return lastMetricsQueryDatetime, stacktrace.Propagate(err, "An error occurred unmarshalling datetime retrieved from etcd database")
+	}
+	return lastMetricsQueryDatetime, nil
+}

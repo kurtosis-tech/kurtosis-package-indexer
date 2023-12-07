@@ -13,8 +13,10 @@ import (
 const (
 	backingFilePerm = 0600
 
-	lastCrawlMetadataBucketName = "lastCrawlMetadataBucketName"
-	lastCrawlDatetimeKey        = "datetime"
+	metadataBucketName                  = "metadataBucketName"
+	dateTimeKey                         = "datetime"
+	lastCrawlDatetimeKey                = "crawl-" + dateTimeKey
+	lastMetricsReporterQueryDatetimeKey = "metrics-query-" + dateTimeKey
 
 	kurtosisPackagesBucketName = "kurtosisPackages"
 )
@@ -120,7 +122,7 @@ func (store *BboltStore) UpdateLastCrawlDatetime(_ context.Context, lastCrawlDat
 			return stacktrace.Propagate(err, "An error occurred serializing time information '%v' prior to persisting it to the Bbolt database", lastCrawlDatetime)
 		}
 
-		bucketInstance, err := tx.CreateBucketIfNotExists([]byte(lastCrawlMetadataBucketName))
+		bucketInstance, err := tx.CreateBucketIfNotExists([]byte(metadataBucketName))
 		if err != nil {
 			return stacktrace.Propagate(err, "Unable to create or get bucket from Bbolt database")
 		}
@@ -139,7 +141,7 @@ func (store *BboltStore) UpdateLastCrawlDatetime(_ context.Context, lastCrawlDat
 func (store *BboltStore) GetLastCrawlDatetime(_ context.Context) (time.Time, error) {
 	lastCrawlDatetime := time.Time{}
 	err := store.db.View(func(tx *bbolt.Tx) error {
-		bucketInstance := tx.Bucket([]byte(lastCrawlMetadataBucketName))
+		bucketInstance := tx.Bucket([]byte(metadataBucketName))
 		if bucketInstance == nil {
 			// no bucket means not data
 			return nil
@@ -160,4 +162,53 @@ func (store *BboltStore) GetLastCrawlDatetime(_ context.Context) (time.Time, err
 		return lastCrawlDatetime, stacktrace.Propagate(err, "An error occurred retrieving the last crawl datetime from Bbolt database")
 	}
 	return lastCrawlDatetime, nil
+}
+
+func (store *BboltStore) UpdateLastMetricsQueryDatetime(ctx context.Context, lastMetricsQueryTime time.Time) error {
+	err := store.db.Update(func(tx *bbolt.Tx) error {
+		serializedDatetime, err := lastMetricsQueryTime.MarshalBinary()
+		if err != nil {
+			return stacktrace.Propagate(err, "An error occurred serializing time information '%v' prior to persisting it to the Bbolt database", lastMetricsQueryTime)
+		}
+
+		bucketInstance, err := tx.CreateBucketIfNotExists([]byte(metadataBucketName))
+		if err != nil {
+			return stacktrace.Propagate(err, "Unable to create or get bucket from Bbolt database")
+		}
+		lastMetricsQueryDatetimeKeyBytes := compositeMetadataKey(lastMetricsReporterQueryDatetimeKey)
+		if err := bucketInstance.Put(lastMetricsQueryDatetimeKeyBytes, serializedDatetime); err != nil {
+			return stacktrace.Propagate(err, "An error occurred persisting serialized time info to Bbolt database")
+		}
+		return nil
+	})
+	if err != nil {
+		return stacktrace.Propagate(err, "An error occurred updating the last metrics query datetime in Bbolt database")
+	}
+	return nil
+}
+
+func (store *BboltStore) GetLastMetricsQueryDatetime(_ context.Context) (time.Time, error) {
+	lastMetricsQueryDatetime := time.Time{}
+	err := store.db.View(func(tx *bbolt.Tx) error {
+		bucketInstance := tx.Bucket([]byte(metadataBucketName))
+		if bucketInstance == nil {
+			// no bucket means not data
+			return nil
+		}
+		lastMetricsQueryDatetimeKeyBytes := compositeMetadataKey(lastMetricsReporterQueryDatetimeKey)
+		serializedDatetime := bucketInstance.Get(lastMetricsQueryDatetimeKeyBytes)
+		if serializedDatetime == nil {
+			// no data stored yet
+			return nil
+		}
+
+		if err := lastMetricsQueryDatetime.UnmarshalBinary(serializedDatetime); err != nil {
+			return stacktrace.Propagate(err, "An error occurred unmarshalling datetime retrieved from Bbolt database")
+		}
+		return nil
+	})
+	if err != nil {
+		return lastMetricsQueryDatetime, stacktrace.Propagate(err, "An error occurred retrieving the last metrics query datetime from Bbolt database")
+	}
+	return lastMetricsQueryDatetime, nil
 }

@@ -48,12 +48,11 @@ func main() {
 	defer cancelFunc()
 
 	// Set up the metrics reporter which will query the metrics storage on a periodical basis
-	metricsReporter, err := metrics.CreateReporter(indexerCtx)
+	metricsReporter, err := metrics.CreateAndScheduleReporter(indexerCtx, indexerStore)
 	if err != nil {
-		exitFailure(stacktrace.Propagate(err, "an error occurred creating the metrics reporter while bootstrapping the server"))
-	} // TODO check if we should not abort here on the first deploy
-	if err := metricsReporter.Schedule(false); err != nil {
-		exitFailure(stacktrace.Propagate(err, "an error occurred scheduling the metrics reporter while bootstrapping the server"))
+		logrus.Errorf("an error occurred creating and schedulling the metrics reporter while bootstrapping the server "+
+			"it won't be stopped because its prefered to have a degraded experience in the indexer (no returning the packages run metrics) "+
+			"than not running it at all. Check if necessary the metrics storage env vars are set, this is the most probably failure. Error was:\n%s", err.Error())
 	}
 
 	// Set up the crawler which will populate the store on a periodical basis

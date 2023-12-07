@@ -25,7 +25,7 @@ type Reporter struct {
 	store            store.KurtosisIndexerStore
 }
 
-func CreateReporter(ctx context.Context, store store.KurtosisIndexerStore) (*Reporter, error) {
+func CreateAndScheduleReporter(ctx context.Context, store store.KurtosisIndexerStore) (*Reporter, error) {
 	snowflakeObj, err := createSnowflake()
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred creating the Snowflake object")
@@ -39,6 +39,10 @@ func CreateReporter(ctx context.Context, store store.KurtosisIndexerStore) (*Rep
 		store:            store,
 	}
 
+	if err := newMetricsReporter.schedule(false); err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred scheduling the metrics reporter")
+	}
+
 	return newMetricsReporter, nil
 }
 
@@ -46,7 +50,7 @@ func (reporter *Reporter) GetPackageRunMetrics() PackagesRunCount {
 	return reporter.packagesRunCount
 }
 
-func (reporter *Reporter) Schedule(forceRunNow bool) error {
+func (reporter *Reporter) schedule(forceRunNow bool) error {
 	if reporter.ticker != nil {
 		logrus.Infof("Reporter already scheduled - stopping it first")
 		reporter.ticker.Stop()

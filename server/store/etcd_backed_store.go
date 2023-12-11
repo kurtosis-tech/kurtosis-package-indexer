@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
 	"github.com/kurtosis-tech/stacktrace"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"sort"
@@ -171,4 +172,38 @@ func (store *EtcdBackedStore) GetLastMetricsQueryDatetime(ctx context.Context) (
 		return lastMetricsQueryDatetime, stacktrace.Propagate(err, "An error occurred unmarshalling datetime retrieved from etcd database")
 	}
 	return lastMetricsQueryDatetime, nil
+}
+
+func (store *EtcdBackedStore) GetPackagesRunCount(ctx context.Context) (types.PackagesRunCount, error) {
+	resp, err := store.client.Get(ctx, packagesRunCountKey)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "An error occurred retrieving metadata from etcd database")
+	}
+	if len(resp.Kvs) == 0 {
+		// no data stored yet
+		return types.PackagesRunCount{}, nil
+	}
+	if len(resp.Kvs) > 1 {
+		return nil, stacktrace.Propagate(err, "More than one value is stored with the key '%s' in etcd. This is unexpected", packagesRunCountKey)
+	}
+
+	serializedPackagesRunCount := resp.Kvs[0].Value
+	packagesRunCount, err := deserializePackagesRunCount(serializedPackagesRunCount)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "An error occurred deserializing the packages run count from etcd database")
+	}
+	return packagesRunCount, nil
+}
+
+func (store *EtcdBackedStore) UpdatePackagesRunCount(ctx context.Context, newPackagesRunCount types.PackagesRunCount) error {
+	serializedPackagesRunCount, err := serializePackagesRunCount(newPackagesRunCount)
+	if err != nil {
+		return stacktrace.Propagate(err, "an error occurred serializing packages run count")
+	}
+
+	_, err = store.client.Put(ctx, packagesRunCountKey, string(serializedPackagesRunCount))
+	if err != nil {
+		return stacktrace.Propagate(err, "An error occurred updating packages run count in etcd database")
+	}
+	return nil
 }

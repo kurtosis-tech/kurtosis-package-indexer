@@ -1,8 +1,11 @@
 package store
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
 	"github.com/kurtosis-tech/stacktrace"
 	"google.golang.org/protobuf/proto"
 	"strings"
@@ -44,4 +47,37 @@ func packageNameFromKey(key []byte) (string, error) {
 
 func compositeMetadataKey(key string) []byte {
 	return []byte(fmt.Sprintf("%s%s", metadataKeyPrefix, key))
+}
+
+func getPackagesRunCountKeyBytes() []byte {
+	return []byte(packagesRunCountKey)
+}
+
+func serializePackagesRunCount(packagesRunCount types.PackagesRunCount) ([]byte, error) {
+
+	packagesRunCountBytesBuffer := new(bytes.Buffer)
+
+	encoder := gob.NewEncoder(packagesRunCountBytesBuffer)
+
+	if err := encoder.Encode(packagesRunCount); err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred encoding the packages run count map")
+	}
+
+	serializedPackagesRunCount := packagesRunCountBytesBuffer.Bytes()
+
+	return serializedPackagesRunCount, nil
+}
+
+func deserializePackagesRunCount(serializedPackagesRunCount []byte) (types.PackagesRunCount, error) {
+	packagesRunCount := types.PackagesRunCount{}
+
+	bytesReader := bytes.NewReader(serializedPackagesRunCount)
+
+	decoder := gob.NewDecoder(bytesReader)
+
+	if err := decoder.Decode(&packagesRunCount); err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred decoding the packages run count map")
+	}
+
+	return packagesRunCount, nil
 }

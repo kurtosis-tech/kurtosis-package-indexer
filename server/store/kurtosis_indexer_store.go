@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/sirupsen/logrus"
 	"os"
@@ -50,6 +51,13 @@ type KurtosisIndexerStore interface {
 	// stored (b/c no query has ever happened, or the store is not persistent), it returns time.Time{}
 	// (i.e. the zero value for time)
 	GetLastMetricsQueryDatetime(ctx context.Context) (time.Time, error)
+
+	// GetPackagesRunCount returns the latest metrics package run count stored value
+	// this value is generated and stored by the metrics reporter
+	GetPackagesRunCount(ctx context.Context) (types.PackagesRunCount, error)
+
+	// UpdatePackagesRunCount updates the packages run count value to the latest obtained from the metrics reporter
+	UpdatePackagesRunCount(ctx context.Context, newPackagesRunCount types.PackagesRunCount) error
 }
 
 func InstantiateStoreFromEnvVar() (KurtosisIndexerStore, error) {

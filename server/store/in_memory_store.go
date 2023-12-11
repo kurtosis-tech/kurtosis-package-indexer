@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
 	"sort"
 	"strings"
 	"time"
@@ -12,7 +13,8 @@ type InMemoryStore struct {
 	lastCrawlTime                    time.Time
 	lastMetricsReporterQueryDatetime time.Time
 
-	packages map[string]*generated.KurtosisPackage
+	packages         map[string]*generated.KurtosisPackage
+	packagesRunCount types.PackagesRunCount
 }
 
 func newInMemoryStore() *InMemoryStore {
@@ -20,6 +22,7 @@ func newInMemoryStore() *InMemoryStore {
 		lastCrawlTime:                    time.Time{},
 		lastMetricsReporterQueryDatetime: time.Time{},
 		packages:                         map[string]*generated.KurtosisPackage{},
+		packagesRunCount:                 types.PackagesRunCount{},
 	}
 }
 
@@ -64,4 +67,13 @@ func (store *InMemoryStore) UpdateLastMetricsQueryDatetime(ctx context.Context, 
 
 func (store *InMemoryStore) GetLastMetricsQueryDatetime(_ context.Context) (time.Time, error) {
 	return store.lastMetricsReporterQueryDatetime, nil
+}
+
+func (store *InMemoryStore) GetPackagesRunCount(_ context.Context) (types.PackagesRunCount, error) {
+	return store.packagesRunCount, nil
+}
+
+func (store *InMemoryStore) UpdatePackagesRunCount(_ context.Context, newPackagesRunCount types.PackagesRunCount) error {
+	store.packagesRunCount = newPackagesRunCount
+	return nil
 }

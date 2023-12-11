@@ -15,39 +15,31 @@ const (
 	queryIntervalBuffer = 15 * time.Second
 )
 
-type PackagesRunCount map[string]uint32
-
 type Reporter struct {
-	ctx              context.Context
-	snowflake        *snowflake
-	packagesRunCount PackagesRunCount // TODO move it into the storage
-	ticker           *ticker.Ticker
-	store            store.KurtosisIndexerStore
+	ctx       context.Context
+	snowflake *snowflake
+	ticker    *ticker.Ticker
+	store     store.KurtosisIndexerStore
 }
 
-func CreateAndScheduleReporter(ctx context.Context, store store.KurtosisIndexerStore) (*Reporter, error) {
+func CreateAndScheduleReporter(ctx context.Context, store store.KurtosisIndexerStore) error {
 	snowflakeObj, err := createSnowflake()
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "an error occurred creating the Snowflake object")
+		return stacktrace.Propagate(err, "an error occurred creating the Snowflake object")
 	}
 
 	newMetricsReporter := &Reporter{
-		ctx:              ctx,
-		snowflake:        snowflakeObj,
-		packagesRunCount: PackagesRunCount{},
-		ticker:           nil,
-		store:            store,
+		ctx:       ctx,
+		snowflake: snowflakeObj,
+		ticker:    nil,
+		store:     store,
 	}
 
 	if err := newMetricsReporter.schedule(false); err != nil {
-		return nil, stacktrace.Propagate(err, "an error occurred scheduling the metrics reporter")
+		return stacktrace.Propagate(err, "an error occurred scheduling the metrics reporter")
 	}
 
-	return newMetricsReporter, nil
-}
-
-func (reporter *Reporter) GetPackageRunMetrics() PackagesRunCount {
-	return reporter.packagesRunCount
+	return nil
 }
 
 func (reporter *Reporter) schedule(forceRunNow bool) error {
@@ -123,7 +115,8 @@ func (reporter *Reporter) doUpdateMetricsNoFailure(ctx context.Context, tickerTi
 	}
 
 	logrus.Infof("Querying metrics storage for getting Kurtosis package metrics from '%s' to '%s'...", lastMetricsQueryDatetime, currentQueryDatetime)
-	if err := reporter.updateMetrics(ctx, lastMetricsQueryDatetime, currentQueryDatetime); err != nil {
+	updatedPackagesRunCount, err := reporter.updateMetrics(ctx, lastMetricsQueryDatetime, currentQueryDatetime)
+	if err != nil {
 		logrus.Errorf("An error occurred querying for Kurtosis packages metrics. The last query datetime"+
 			"will be reverted to its previous value '%v'. This node will try querying again in '%v'. "+
 			"Error was:\n%s", lastMetricsQueryDatetime, queryFrequency, err.Error())
@@ -131,17 +124,20 @@ func (reporter *Reporter) doUpdateMetricsNoFailure(ctx context.Context, tickerTi
 	} else {
 		updateMetricsSuccessful = true
 	}
-	logrus.Infof("... query finished in %v. Success: '%v'. Total metrics rows: %d",
-		time.Since(tickerTime), updateMetricsSuccessful, len(reporter.packagesRunCount))
+	logrus.Infof("... query finished in %v. Success: '%v'. Total packages updated: %d",
+		time.Since(tickerTime), updateMetricsSuccessful, updatedPackagesRunCount)
 }
 
-func (reporter *Reporter) updateMetrics(ctx context.Context, fromTime time.Time, toTime time.Time) error {
+func (reporter *Reporter) updateMetrics(ctx context.Context, fromTime time.Time, toTime time.Time) (int, error) {
 
 	newPackagesRunCount, err := reporter.snowflake.getPackageRunMetricsInDateRange(ctx, fromTime, toTime)
 	if err != nil {
-		return stacktrace.Propagate(err, "an error occurred running the query to get the package run metrics from '%s' to '%s'", fromTime, toTime)
+		return 0, stacktrace.Propagate(err, "an error occurred running the query to get the package run metrics from '%s' to '%s'", fromTime, toTime)
 	}
-	packagesRunCount := reporter.packagesRunCount
+	packagesRunCount, err := reporter.store.GetPackagesRunCount(ctx)
+	if err != nil {
+		return 0, stacktrace.Propagate(err, "an error occurred getting packages run count from the store")
+	}
 
 	for packageName, newCount := range newPackagesRunCount {
 		finalCount := newCount
@@ -151,7 +147,9 @@ func (reporter *Reporter) updateMetrics(ctx context.Context, fromTime time.Time,
 		packagesRunCount[packageName] = finalCount
 	}
 
-	reporter.packagesRunCount = packagesRunCount
+	if err := reporter.store.UpdatePackagesRunCount(ctx, packagesRunCount); err != nil {
+		return 0, stacktrace.Propagate(err, "an error occurred updating packages run count")
+	}
 
-	return nil
+	return len(packagesRunCount), nil
 }

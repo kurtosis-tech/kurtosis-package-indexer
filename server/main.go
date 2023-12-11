@@ -48,8 +48,7 @@ func main() {
 	defer cancelFunc()
 
 	// Set up the metrics reporter which will query the metrics storage on a periodical basis
-	metricsReporter, err := metrics.CreateAndScheduleReporter(indexerCtx, indexerStore)
-	if err != nil {
+	if err = metrics.CreateAndScheduleReporter(indexerCtx, indexerStore); err != nil {
 		//TODO not exiting for the first deploy
 		//TODO add exit failure after validating that all works for the first deployment
 		logrus.Errorf("an error occurred creating and schedulling the metrics reporter while bootstrapping the server "+
@@ -57,7 +56,7 @@ func main() {
 	}
 
 	// Set up the crawler which will populate the store on a periodical basis
-	indexerCrawler, err := crawler.NewGitHubCrawler(indexerCtx, indexerStore, metricsReporter)
+	indexerCrawler, err := crawler.NewGitHubCrawler(indexerCtx, indexerStore)
 	if err != nil {
 		exitFailure(stacktrace.Propagate(err, "an error occurred creating the GitHubCrawler while bootstrapping the server"))
 	}

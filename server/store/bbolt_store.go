@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
 	"github.com/kurtosis-tech/stacktrace"
 	"go.etcd.io/bbolt"
 	"sort"
@@ -14,11 +15,14 @@ const (
 	backingFilePerm = 0600
 
 	metadataBucketName                  = "metadataBucketName"
-	dateTimeKey                         = "datetime"
-	lastCrawlDatetimeKey                = "crawl-" + dateTimeKey
-	lastMetricsReporterQueryDatetimeKey = "metrics-query-" + dateTimeKey
+	dateTimeSuffix                      = "datetime"
+	lastCrawlDatetimeKey                = "crawl-" + dateTimeSuffix
+	lastMetricsReporterQueryDatetimeKey = "metrics-query-" + dateTimeSuffix
+	packagesRunCountKey                 = "packages-run-count"
 
 	kurtosisPackagesBucketName = "kurtosisPackages"
+
+	packagesRunCountBucketName = "packagesRunCount"
 )
 
 type BboltStore struct {
@@ -211,4 +215,54 @@ func (store *BboltStore) GetLastMetricsQueryDatetime(_ context.Context) (time.Ti
 		return lastMetricsQueryDatetime, stacktrace.Propagate(err, "An error occurred retrieving the last metrics query datetime from Bbolt database")
 	}
 	return lastMetricsQueryDatetime, nil
+}
+
+func (store *BboltStore) GetPackagesRunCount(_ context.Context) (types.PackagesRunCount, error) {
+	packagesRunCount := types.PackagesRunCount{}
+	err := store.db.View(func(tx *bbolt.Tx) error {
+		bucketInstance := tx.Bucket([]byte(packagesRunCountBucketName))
+		if bucketInstance == nil {
+			return nil
+		}
+		packagesRunCountKeyBytes := getPackagesRunCountKeyBytes()
+		serializedPackagesRunCount := bucketInstance.Get(packagesRunCountKeyBytes)
+		if serializedPackagesRunCount == nil {
+			// no data stored yet
+			return nil
+		}
+
+		deserializedPackagesRunCount, err := deserializePackagesRunCount(serializedPackagesRunCount)
+		if err != nil {
+			return stacktrace.Propagate(err, "An error occurred deserializing packages run count")
+		}
+		packagesRunCount = deserializedPackagesRunCount
+		return nil
+	})
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "An error occurred retrieving packages run count from Bbolt database")
+	}
+	return packagesRunCount, nil
+}
+
+func (store *BboltStore) UpdatePackagesRunCount(_ context.Context, newPackagesRunCount types.PackagesRunCount) error {
+	err := store.db.Update(func(tx *bbolt.Tx) error {
+		serializedPackagesRunCount, err := serializePackagesRunCount(newPackagesRunCount)
+		if err != nil {
+			return stacktrace.Propagate(err, "An error occurred serializing packages run count '%+v' prior to persisting it to the Bbolt database", newPackagesRunCount)
+		}
+
+		bucketInstance, err := tx.CreateBucketIfNotExists([]byte(packagesRunCountBucketName))
+		if err != nil {
+			return stacktrace.Propagate(err, "Unable to create or get bucket from Bbolt database")
+		}
+		packagesRunCountKeyBytes := getPackagesRunCountKeyBytes()
+		if err := bucketInstance.Put(packagesRunCountKeyBytes, serializedPackagesRunCount); err != nil {
+			return stacktrace.Propagate(err, "An error occurred persisting serialized packages run count info to Bbolt database")
+		}
+		return nil
+	})
+	if err != nil {
+		return stacktrace.Propagate(err, "An error occurred updating packages run count in Bbolt database")
+	}
+	return nil
 }

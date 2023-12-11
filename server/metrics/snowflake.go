@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/sirupsen/logrus"
 	sf "github.com/snowflakedb/gosnowflake"
@@ -61,7 +62,7 @@ func createSnowflake() (*snowflake, error) {
 	return newSnowflake, nil
 }
 
-func (snowflake *snowflake) getPackageRunMetricsInDateRange(ctx context.Context, fromTime time.Time, toTime time.Time) (PackagesRunCount, error) {
+func (snowflake *snowflake) getPackageRunMetricsInDateRange(ctx context.Context, fromTime time.Time, toTime time.Time) (types.PackagesRunCount, error) {
 	conn, err := snowflake.getConnection(ctx)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred getting the Snowflake dB connection")
@@ -87,7 +88,7 @@ func (snowflake *snowflake) getPackageRunMetricsInDateRange(ctx context.Context,
 	}()
 	var packageName string
 	var count uint32
-	result := PackagesRunCount{}
+	result := types.PackagesRunCount{}
 	for rows.Next() {
 		if err := rows.Scan(&packageName, &count); err != nil {
 			return nil, stacktrace.Propagate(err, "an error occurred scanning the query result rows")

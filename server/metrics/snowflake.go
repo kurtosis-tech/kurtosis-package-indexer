@@ -161,14 +161,16 @@ func getSnowflakeDSN() (string, error) {
 		return "", stacktrace.Propagate(err, "an error occurred getting the Snowflake role")
 	}
 
-	dsn, err := sf.DSN(&sf.Config{
+	// nolint: exhaustruct
+	config := &sf.Config{
 		Account:   snowflakeAccount,
 		User:      snowflakeUser,
 		Password:  snowflakePassword,
 		Database:  snowflakeDatabase,
 		Warehouse: snowflakeWarehouse,
 		Role:      snowflakeRole,
-	})
+	}
+	dsn, err := sf.DSN(config)
 	if err != nil {
 		return "", stacktrace.Propagate(err, "an error occurred configuring DSN for the Snowflake dB connection")
 	}

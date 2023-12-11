@@ -538,7 +538,7 @@ func extractKurtosisPackageContent(
 	// add the run count metrics
 	runCount, found := packagesRunCount[kurtosisPackageName]
 	if !found {
-		logrus.Warnf("no package run metrics found for '%s'", kurtosisPackageName)
+		logrus.Infof("no package run metrics found for '%s'", kurtosisPackageName)
 	}
 
 	return NewKurtosisPackageContent(

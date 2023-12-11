@@ -48,7 +48,8 @@ func main() {
 	defer cancelFunc()
 
 	// Set up the metrics reporter which will query the metrics storage on a periodical basis
-	if err = metrics.CreateAndScheduleReporter(indexerCtx, indexerStore); err != nil {
+	metricsReporter, err := metrics.CreateAndScheduleReporter(indexerCtx, indexerStore)
+	if err != nil {
 		//TODO not exiting for the first deploy
 		//TODO add exit failure after validating that all works for the first deployment
 		logrus.Errorf("an error occurred creating and schedulling the metrics reporter while bootstrapping the server "+
@@ -64,14 +65,14 @@ func main() {
 		exitFailure(stacktrace.Propagate(err, "an error occurred scheduling the GitHubCrawler while bootstrapping the server"))
 	}
 
-	if err := runServer(indexerStore, indexerCrawler); err != nil {
+	if err := runServer(indexerStore, indexerCrawler, metricsReporter); err != nil {
 		exitFailure(err)
 	}
 	logrus.Exit(successExitCode)
 }
 
-func runServer(indexerStore store.KurtosisIndexerStore, indexerCrawler *crawler.GithubCrawler) error {
-	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer(indexerStore, indexerCrawler)
+func runServer(indexerStore store.KurtosisIndexerStore, indexerCrawler *crawler.GithubCrawler, metricsReporter *metrics.Reporter) error {
+	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer(indexerStore, indexerCrawler, metricsReporter)
 	connectGoHandler := resource.NewKurtosisPackageIndexerHandlerImpl(kurtosisPackageIndexerResource)
 
 	apiPath, handler := generatedconnect.NewKurtosisPackageIndexerHandler(connectGoHandler)

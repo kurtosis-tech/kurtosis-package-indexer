@@ -15,7 +15,7 @@ import (
 const (
 	// kurtosisSnowflakeAccountIdentifierEnvVarKey using this format: https://docs.snowflake.com/en/user-guide/admin-account-identifier#format-1-preferred-account-name-in-your-organization
 	kurtosisSnowflakeAccountIdentifierEnvVarKey = "KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER"
-	// kurtosisSnowflakeUserEnvVarKey should be a user with only read access to public metrics
+	// kurtosisSnowflakeUserEnvVarKey is a user with only read access to public metrics
 	kurtosisSnowflakeUserEnvVarKey      = "KURTOSIS_SNOWFLAKE_USER"
 	kurtosisSnowflakePasswordEnvVarKey  = "KURTOSIS_SNOWFLAKE_PASSWORD"
 	kurtosisSnowflakeDatabaseEnvVarKey  = "KURTOSIS_SNOWFLAKE_DB"

@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	queryFrequency = 1 * time.Hour
+	queryFrequency = 30 * time.Minute
 
 	queryIntervalBuffer = 15 * time.Second
 )
@@ -34,7 +34,7 @@ func CreateAndScheduleReporter(ctx context.Context, store store.KurtosisIndexerS
 	newMetricsReporter := &Reporter{
 		ctx:              ctx,
 		snowflake:        snowflakeObj,
-		packagesRunCount: nil,
+		packagesRunCount: PackagesRunCount{},
 		ticker:           nil,
 		store:            store,
 	}
@@ -122,8 +122,8 @@ func (reporter *Reporter) doUpdateMetricsNoFailure(ctx context.Context, tickerTi
 		}()
 	}
 
-	logrus.Info("Querying metrics storage for getting Kurtosis package metrics...")
-	if err := reporter.updateMetrics(ctx); err != nil {
+	logrus.Infof("Querying metrics storage for getting Kurtosis package metrics from '%s' to '%s'...", lastMetricsQueryDatetime, currentQueryDatetime)
+	if err := reporter.updateMetrics(ctx, lastMetricsQueryDatetime, currentQueryDatetime); err != nil {
 		logrus.Errorf("An error occurred querying for Kurtosis packages metrics. The last query datetime"+
 			"will be reverted to its previous value '%v'. This node will try querying again in '%v'. "+
 			"Error was:\n%s", lastMetricsQueryDatetime, queryFrequency, err.Error())
@@ -135,12 +135,23 @@ func (reporter *Reporter) doUpdateMetricsNoFailure(ctx context.Context, tickerTi
 		time.Since(tickerTime), updateMetricsSuccessful, len(reporter.packagesRunCount))
 }
 
-func (reporter *Reporter) updateMetrics(ctx context.Context) error {
-	runMetricsRows, err := reporter.snowflake.runQueryAndGetPackageRunMetrics(ctx)
+func (reporter *Reporter) updateMetrics(ctx context.Context, fromTime time.Time, toTime time.Time) error {
+
+	newPackagesRunCount, err := reporter.snowflake.getPackageRunMetricsInDateRange(ctx, fromTime, toTime)
 	if err != nil {
-		return stacktrace.Propagate(err, "an error occurred running the query to get the package run metrics")
+		return stacktrace.Propagate(err, "an error occurred running the query to get the package run metrics from '%s' to '%s'", fromTime, toTime)
 	}
-	reporter.packagesRunCount = runMetricsRows
+	packagesRunCount := reporter.packagesRunCount
+
+	for packageName, newCount := range newPackagesRunCount {
+		finalCount := newCount
+		if currentCount, found := packagesRunCount[packageName]; found {
+			finalCount = currentCount + newCount
+		}
+		packagesRunCount[packageName] = finalCount
+	}
+
+	reporter.packagesRunCount = packagesRunCount
 
 	return nil
 }

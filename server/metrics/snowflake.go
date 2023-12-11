@@ -12,23 +12,25 @@ import (
 )
 
 const (
-	// KurtosisSnowflakeAccountIdentifierEnvVarKey using this format: https://docs.snowflake.com/en/user-guide/admin-account-identifier#format-1-preferred-account-name-in-your-organization
-	KurtosisSnowflakeAccountIdentifierEnvVarKey = "KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER"
-	// KurtosisSnowflakeUserEnvVarKey should be a user with only read access to public metrics
-	KurtosisSnowflakeUserEnvVarKey      = "KURTOSIS_SNOWFLAKE_USER"
-	KurtosisSnowflakePasswordEnvVarKey  = "KURTOSIS_SNOWFLAKE_PASSWORD"
-	KurtosisSnowflakeDatabaseEnvVarKey  = "KURTOSIS_SNOWFLAKE_DB"
-	KurtosisSnowflakeWarehouseEnvVarKey = "KURTOSIS_SNOWFLAKE_WAREHOUSE"
-	KurtosisSnowflakeRoleEnvVarKey      = "KURTOSIS_SNOWFLAKE_ROLE"
+	// kurtosisSnowflakeAccountIdentifierEnvVarKey using this format: https://docs.snowflake.com/en/user-guide/admin-account-identifier#format-1-preferred-account-name-in-your-organization
+	kurtosisSnowflakeAccountIdentifierEnvVarKey = "KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER"
+	// kurtosisSnowflakeUserEnvVarKey should be a user with only read access to public metrics
+	kurtosisSnowflakeUserEnvVarKey      = "KURTOSIS_SNOWFLAKE_USER"
+	kurtosisSnowflakePasswordEnvVarKey  = "KURTOSIS_SNOWFLAKE_PASSWORD"
+	kurtosisSnowflakeDatabaseEnvVarKey  = "KURTOSIS_SNOWFLAKE_DB"
+	kurtosisSnowflakeWarehouseEnvVarKey = "KURTOSIS_SNOWFLAKE_WAREHOUSE"
+	kurtosisSnowflakeRoleEnvVarKey      = "KURTOSIS_SNOWFLAKE_ROLE"
 
-	SnowflakeDriverName = "snowflake"
+	snowflakeDriverName = "snowflake"
 
-	//SnowflakeDBIdleConnections this be small because they will be used only for the job task, and it won't be run over each server request
-	SnowflakeDBIdleConnections = 10
-	//SnowflakeDBMaxOpenConnections this be small because they will be used only for the job task, and it won't be run over each server request
-	SnowflakeDBMaxOpenConnections = 5
-	SnowflakeDBConnMaxLifeTime    = 5 * time.Second
-	SnowflakeQueryTimeout         = 60 * time.Second
+	//snowflakeDBIdleConnections this be small because they will be used only for the job task, and it won't be run over each server request
+	snowflakeDBIdleConnections = 10
+	//snowflakeDBMaxOpenConnections this be small because they will be used only for the job task, and it won't be run over each server request
+	snowflakeDBMaxOpenConnections = 5
+	snowflakeDBConnMaxLifeTime    = 5 * time.Second
+	snowflakeQueryTimeout         = 60 * time.Second
+
+	snowflakeTimestampFormat = "2006-01-02 15:04:05"
 
 	kurtosianUserSQLQuery = "SELECT USER_ID FROM SEGMENT_EVENTS.KURTOSIS_METRICS_LIBRARY.KNOWN_USERS WHERE IS_KURTOSIAN=TRUE"
 	isCISQLQueryCondition = "FALSE"
@@ -37,8 +39,9 @@ const (
 	selectPackageRunMetricSQLQueryFormat = `SELECT IFNULL(kp.name, k.package_id) as package_name, COUNT(k.PACKAGE_ID) AS COUNT 
 FROM SEGMENT_EVENTS.KURTOSIS_METRICS_LIBRARY.KURTOSIS_RUN k 
 LEFT JOIN SEGMENT_EVENTS.KURTOSIS_METRICS_LIBRARY.KNOWN_PACKAGES kp ON k.PACKAGE_ID = kp.PACKAGE_ID 
-                                                                    WHERE k.USER_ID NOT IN ( %s ) AND k.IS_CI = %s 
-                                                                    GROUP BY package_name;`
+WHERE k.USER_ID NOT IN ( %s ) AND k.IS_CI = %s
+AND (ORIGINAL_TIMESTAMP >= ('%s')::timestamp AND ORIGINAL_TIMESTAMP < ('%s')::timestamp)
+GROUP BY package_name;`
 )
 
 type snowflake struct {
@@ -58,15 +61,21 @@ func createSnowflake() (*snowflake, error) {
 	return newSnowflake, nil
 }
 
-func (snowflake *snowflake) runQueryAndGetPackageRunMetrics(ctx context.Context) (PackagesRunCount, error) {
+func (snowflake *snowflake) getPackageRunMetricsInDateRange(ctx context.Context, fromTime time.Time, toTime time.Time) (PackagesRunCount, error) {
 	conn, err := snowflake.getConnection(ctx)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred getting the Snowflake dB connection")
 	}
 
-	ctxWithTimeout, _ := context.WithTimeout(ctx, SnowflakeQueryTimeout)
+	ctxWithTimeout, _ := context.WithTimeout(ctx, snowflakeQueryTimeout)
 
-	query := fmt.Sprintf(selectPackageRunMetricSQLQueryFormat, kurtosianUserSQLQuery, isCISQLQueryCondition)
+	query := fmt.Sprintf(
+		selectPackageRunMetricSQLQueryFormat,
+		kurtosianUserSQLQuery,
+		isCISQLQueryCondition,
+		fromTime.Format(snowflakeTimestampFormat),
+		toTime.Format(snowflakeTimestampFormat),
+	)
 	rows, err := conn.QueryContext(ctxWithTimeout, query)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred running the query for getting the run metrics")
@@ -79,9 +88,7 @@ func (snowflake *snowflake) runQueryAndGetPackageRunMetrics(ctx context.Context)
 	var packageName string
 	var count uint32
 	result := PackagesRunCount{}
-	var rowCounter int //TODO remove
 	for rows.Next() {
-		rowCounter++
 		if err := rows.Scan(&packageName, &count); err != nil {
 			return nil, stacktrace.Propagate(err, "an error occurred scanning the query result rows")
 		}
@@ -90,7 +97,7 @@ func (snowflake *snowflake) runQueryAndGetPackageRunMetrics(ctx context.Context)
 	if rows.Err() != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred getting the query result rows")
 	}
-	logrus.Debugf("run metrics query successfully executed, '%v' rows received", len(result))
+	logrus.Debugf("run metrics query successfully executed, '%v' packages received", len(result))
 
 	return result, nil
 }
@@ -114,7 +121,7 @@ func (snowflake *snowflake) getConnection(ctx context.Context) (conn *sql.Conn, 
 
 func (snowflake *snowflake) getSnowflakeDB() (*sql.DB, error) {
 
-	db, err := sql.Open(SnowflakeDriverName, snowflake.dsn)
+	db, err := sql.Open(snowflakeDriverName, snowflake.dsn)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred opening the Snowflake dB")
 	}
@@ -126,9 +133,9 @@ func (snowflake *snowflake) getSnowflakeDB() (*sql.DB, error) {
 
 	// these values should be small because they will be used only for the job task,
 	// and it won't be run over each server request
-	db.SetMaxIdleConns(SnowflakeDBIdleConnections)
-	db.SetMaxOpenConns(SnowflakeDBMaxOpenConnections)
-	db.SetConnMaxLifetime(SnowflakeDBConnMaxLifeTime)
+	db.SetMaxIdleConns(snowflakeDBIdleConnections)
+	db.SetMaxOpenConns(snowflakeDBMaxOpenConnections)
+	db.SetConnMaxLifetime(snowflakeDBConnMaxLifeTime)
 
 	return db, nil
 }
@@ -179,27 +186,27 @@ func getSnowflakeDSN() (string, error) {
 }
 
 func getSnowflakeAccountFromEnvVar() (string, error) {
-	return getFromEnvVar(KurtosisSnowflakeAccountIdentifierEnvVarKey, "Snowflake account identifier")
+	return getFromEnvVar(kurtosisSnowflakeAccountIdentifierEnvVarKey, "Snowflake account identifier")
 }
 
 func getSnowflakeUserFromEnvVar() (string, error) {
-	return getFromEnvVar(KurtosisSnowflakeUserEnvVarKey, "Snowflake user")
+	return getFromEnvVar(kurtosisSnowflakeUserEnvVarKey, "Snowflake user")
 }
 
 func getSnowflakePasswordFromEnvVar() (string, error) {
-	return getFromEnvVar(KurtosisSnowflakePasswordEnvVarKey, "Snowflake password")
+	return getFromEnvVar(kurtosisSnowflakePasswordEnvVarKey, "Snowflake password")
 }
 
 func getSnowflakeDatabaseFromEnvVar() (string, error) {
-	return getFromEnvVar(KurtosisSnowflakeDatabaseEnvVarKey, "Snowflake database")
+	return getFromEnvVar(kurtosisSnowflakeDatabaseEnvVarKey, "Snowflake database")
 }
 
 func getSnowflakeWarehouseFromEnvVar() (string, error) {
-	return getFromEnvVar(KurtosisSnowflakeWarehouseEnvVarKey, "Snowflake warehouse")
+	return getFromEnvVar(kurtosisSnowflakeWarehouseEnvVarKey, "Snowflake warehouse")
 }
 
 func getSnowflakeRoleFromEnvVar() (string, error) {
-	return getFromEnvVar(KurtosisSnowflakeRoleEnvVarKey, "Snowflake role")
+	return getFromEnvVar(kurtosisSnowflakeRoleEnvVarKey, "Snowflake role")
 }
 
 func getFromEnvVar(

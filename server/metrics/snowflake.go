@@ -46,29 +46,36 @@ GROUP BY package_name;`
 )
 
 type snowflake struct {
-	dsn string
+	db *sql.DB
 }
 
 func createSnowflake() (*snowflake, error) {
-	dsn, err := getSnowflakeDSN()
+
+	db, err := createSnowflakeDB()
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "an error occurred getting the Snowflake DSN")
+		return nil, stacktrace.Propagate(err, "an error occurred creating the Snowflake dB")
 	}
 
 	newSnowflake := &snowflake{
-		dsn: dsn,
+		db: db,
 	}
 
 	return newSnowflake, nil
 }
 
 func (snowflake *snowflake) getPackageRunMetricsInDateRange(ctx context.Context, fromTime time.Time, toTime time.Time) (types.PackagesRunCount, error) {
-	conn, err := snowflake.getConnection(ctx)
+	conn, err := snowflake.db.Conn(ctx)
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "an error occurred getting the Snowflake dB connection")
+		return nil, stacktrace.Propagate(err, "an error occurred getting a Snowflake dB connection")
 	}
+	defer func() {
+		if err := conn.Close(); err != nil {
+			logrus.Warningf("an error occurred while closing the database connection. Error was:\n%v", err.Error())
+		}
+	}()
 
-	ctxWithTimeout, _ := context.WithTimeout(ctx, snowflakeQueryTimeout)
+	ctxWithTimeout, cancelCtx := context.WithTimeout(ctx, snowflakeQueryTimeout)
+	defer cancelCtx()
 
 	query := fmt.Sprintf(
 		selectPackageRunMetricSQLQueryFormat,
@@ -103,34 +110,16 @@ func (snowflake *snowflake) getPackageRunMetricsInDateRange(ctx context.Context,
 	return result, nil
 }
 
-func (snowflake *snowflake) getConnection(ctx context.Context) (conn *sql.Conn, err error) {
-
-	db, err := snowflake.getSnowflakeDB()
+func createSnowflakeDB() (*sql.DB, error) {
+	dsn, err := getSnowflakeDSN()
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "an error occurred getting the Snowflake dB")
+		return nil, stacktrace.Propagate(err, "an error occurred getting the Snowflake DSN")
 	}
 
-	logrus.Debugf("Connecting with Snowflake database...")
-	conn, err = db.Conn(ctx)
-	if err != nil {
-		return nil, stacktrace.Propagate(err, "an error occurred connecting to the Snowflake dB")
-	}
-	logrus.Debugf("...successful connection.")
-
-	return conn, err
-}
-
-func (snowflake *snowflake) getSnowflakeDB() (*sql.DB, error) {
-
-	db, err := sql.Open(snowflakeDriverName, snowflake.dsn)
+	db, err := sql.Open(snowflakeDriverName, dsn)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred opening the Snowflake dB")
 	}
-	defer func() {
-		/*if err := db.Close(); err != nil {
-			logrus.Warningf("an error occurred closing the Snowflake dB")
-		}*/ // TODO handle this
-	}()
 
 	// these values should be small because they will be used only for the job task,
 	// and it won't be run over each server request

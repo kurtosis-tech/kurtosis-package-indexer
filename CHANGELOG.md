@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.16](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.15...0.0.16) (2023-12-04)
+
+
+### Bug Fixes
+
+* returning icon URL for Kurtosis packages in subfolders ([#72](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/72)) ([5bddfad](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/5bddfad6dc66ce6ee6f9bbee554c20474733a2a3))
+
 ## [0.0.15](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.14...0.0.15) (2023-12-04)
 
 

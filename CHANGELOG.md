@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.17](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.16...0.0.17) (2023-12-12)
+
+
+### Features
+
+* add packages run count metric ([#74](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/74)) ([09b8ded](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/09b8ded18455ed044e1402137d9c65e7812f0b6b))
+
 ## [0.0.16](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.15...0.0.16) (2023-12-04)
 
 

@@ -37,6 +37,9 @@ type KurtosisPackageContent struct {
 
 	// The Kurtosis package icon's URL.
 	IconURL string
+
+	// RunCount represents the package run count provided by the Kurtosis metrics storage (currently Snowflake)
+	RunCount uint32
 }
 
 func NewKurtosisPackageContent(
@@ -49,6 +52,7 @@ func NewKurtosisPackageContent(
 	parsingTime *timestamppb.Timestamp,
 	version string,
 	iconURL string,
+	runCount uint32,
 	packageArguments ...*StarlarkFunctionArgument,
 ) *KurtosisPackageContent {
 	return &KurtosisPackageContent{
@@ -62,5 +66,6 @@ func NewKurtosisPackageContent(
 		ParsingTime:           parsingTime,
 		Version:               version,
 		IconURL:               iconURL,
+		RunCount:              runCount,
 	}
 }

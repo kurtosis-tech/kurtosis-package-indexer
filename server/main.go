@@ -4,9 +4,11 @@ import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated/generatedconnect"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/crawler"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/metrics"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/resource"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
 	connect_server "github.com/kurtosis-tech/kurtosis/connect-server"
+	"github.com/kurtosis-tech/stacktrace"
 	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
 	"path"
@@ -42,22 +44,35 @@ func main() {
 	}
 	defer indexerStore.Close()
 
-	// Set up the crawler which will populate the store on a periodical basis
 	indexerCtx, cancelFunc := context.WithCancel(ctx)
-	indexerCrawler := crawler.NewGithubCrawler(indexerCtx, indexerStore)
-	if err := indexerCrawler.Schedule(false); err != nil {
-		exitFailure(err)
-	}
 	defer cancelFunc()
 
-	if err := runServer(indexerStore, indexerCrawler); err != nil {
+	// Set up the metrics reporter which will query the metrics storage on a periodical basis
+	metricsReporter, err := metrics.CreateAndScheduleReporter(indexerCtx, indexerStore)
+	if err != nil {
+		//TODO not exiting for the first deploy
+		//TODO add exit failure after validating that all works for the first deployment
+		logrus.Errorf("an error occurred creating and schedulling the metrics reporter while bootstrapping the server "+
+			"Check if the required metrics storage env vars are set, this is the most probably failure. Error was:\n%s", err.Error())
+	}
+
+	// Set up the crawler which will populate the store on a periodical basis
+	indexerCrawler, err := crawler.NewGitHubCrawler(indexerCtx, indexerStore)
+	if err != nil {
+		exitFailure(stacktrace.Propagate(err, "an error occurred creating the GitHubCrawler while bootstrapping the server"))
+	}
+	if err := indexerCrawler.Schedule(false); err != nil {
+		exitFailure(stacktrace.Propagate(err, "an error occurred scheduling the GitHubCrawler while bootstrapping the server"))
+	}
+
+	if err := runServer(indexerStore, indexerCrawler, metricsReporter); err != nil {
 		exitFailure(err)
 	}
 	logrus.Exit(successExitCode)
 }
 
-func runServer(indexerStore store.KurtosisIndexerStore, indexerCrawler *crawler.GithubCrawler) error {
-	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer(indexerStore, indexerCrawler)
+func runServer(indexerStore store.KurtosisIndexerStore, indexerCrawler *crawler.GithubCrawler, metricsReporter *metrics.Reporter) error {
+	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer(indexerStore, indexerCrawler, metricsReporter)
 	connectGoHandler := resource.NewKurtosisPackageIndexerHandlerImpl(kurtosisPackageIndexerResource)
 
 	apiPath, handler := generatedconnect.NewKurtosisPackageIndexerHandler(connectGoHandler)

@@ -3,21 +3,26 @@ package store
 import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
 	"sort"
 	"strings"
 	"time"
 )
 
 type InMemoryStore struct {
-	lastCrawlTime time.Time
+	lastCrawlTime                    time.Time
+	lastMetricsReporterQueryDatetime time.Time
 
-	packages map[string]*generated.KurtosisPackage
+	packages         map[string]*generated.KurtosisPackage
+	packagesRunCount types.PackagesRunCount
 }
 
 func newInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
-		lastCrawlTime: time.Time{},
-		packages:      map[string]*generated.KurtosisPackage{},
+		lastCrawlTime:                    time.Time{},
+		lastMetricsReporterQueryDatetime: time.Time{},
+		packages:                         map[string]*generated.KurtosisPackage{},
+		packagesRunCount:                 types.PackagesRunCount{},
 	}
 }
 
@@ -53,4 +58,22 @@ func (store *InMemoryStore) UpdateLastCrawlDatetime(_ context.Context, lastCrawl
 
 func (store *InMemoryStore) GetLastCrawlDatetime(_ context.Context) (time.Time, error) {
 	return store.lastCrawlTime, nil
+}
+
+func (store *InMemoryStore) UpdateLastMetricsQueryDatetime(ctx context.Context, lastMetricsQueryTime time.Time) error {
+	store.lastMetricsReporterQueryDatetime = lastMetricsQueryTime
+	return nil
+}
+
+func (store *InMemoryStore) GetLastMetricsQueryDatetime(_ context.Context) (time.Time, error) {
+	return store.lastMetricsReporterQueryDatetime, nil
+}
+
+func (store *InMemoryStore) GetPackagesRunCount(_ context.Context) (types.PackagesRunCount, error) {
+	return store.packagesRunCount, nil
+}
+
+func (store *InMemoryStore) UpdatePackagesRunCount(_ context.Context, newPackagesRunCount types.PackagesRunCount) error {
+	store.packagesRunCount = newPackagesRunCount
+	return nil
 }

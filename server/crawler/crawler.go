@@ -279,13 +279,13 @@ func (crawler *GithubCrawler) updateOrDeleteStoredPackages(ctx context.Context, 
 
 func (crawler *GithubCrawler) addNewPackages(ctx context.Context, githubClient *github.Client, kurtosisPackageUpdated map[string]bool) (map[string]bool, error) {
 	logrus.Debugf("Going to read the package catalog for potential new packages now...")
-	allKurtosisPakagesRepositoryMetadata, err := getPackagesRepositoryMetadata(ctx, githubClient)
+	allKurtosisPackagesRepositoryMetadata, err := getPackagesRepositoryMetadata(ctx, githubClient)
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "error search for Kurtosis package repositories on Github")
+		return nil, stacktrace.Propagate(err, "and error occurred getting the packages repository metadata")
 	}
 
 	kurtosisPackageAdded := map[string]bool{}
-	for _, kurtosisPackageMetadata := range allKurtosisPakagesRepositoryMetadata {
+	for _, kurtosisPackageMetadata := range allKurtosisPackagesRepositoryMetadata {
 		packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 		if _, found := kurtosisPackageUpdated[packageRepositoryLocator]; found {
 			// package was already stored prior to this reading. Its content has been refreshed above. Skipping it here
@@ -418,67 +418,6 @@ func getPackagesRepositoryMetadata(ctx context.Context, client *github.Client) (
 		allPackageRepositoryMetadatas = append(allPackageRepositoryMetadatas, newPackageRepositoryMetadata)
 	}
 
-	return allPackageRepositoryMetadatas, nil
-}
-
-func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Client) ([]*PackageRepositoryMetadata, error) {
-	// Pagination logic taken from https://github.com/google/go-github/tree/master#pagination
-
-	var allPackageRepositoryMetadatas []*PackageRepositoryMetadata
-	searchOpts := &github.SearchOptions{
-		Sort:      "stars",
-		Order:     "desc",
-		TextMatch: false,
-		ListOptions: github.ListOptions{
-			Page:    1,
-			PerPage: githubPageSize,
-		},
-	}
-	searchQuery := fmt.Sprintf("filename:%s", defaultKurtosisYamlFilename)
-	for {
-		repoSearchResult, rawResponse, err := client.Search.Code(ctx, searchQuery, searchOpts)
-		if err != nil {
-			return nil, stacktrace.Propagate(err, "An error occurred searching for Kurtosis package repositories - page number %d", searchOpts.Page)
-		}
-
-		for _, searchResult := range repoSearchResult.CodeResults {
-			rootPath := strings.TrimSuffix(*searchResult.Path, defaultKurtosisYamlFilename)
-			if rootPath == *searchResult.Path {
-				// it means nothing was trimmed. It's likely invalid
-				logrus.Warnf("A search result was invalid because the path to the file did not finish with '%s'. "+
-					"Resository was: '%s', path was: '%s'", defaultKurtosisYamlFilename, *searchResult.Repository.FullName,
-					*searchResult.Path)
-				continue
-			}
-
-			repository := searchResult.Repository
-
-			repoOwner, err := getRepositoryOwner(repository)
-			if err != nil {
-				logrus.Warnf("Search result '%s' was invalid b/c the Github repository has no owner",
-					repository.GetFullName())
-				continue
-			}
-
-			var numberOfStars uint64
-			if repository.GetStargazersCount() > 0 {
-				numberOfStars = uint64(repository.GetStargazersCount())
-			}
-
-			defaultBranch := noDefaultBranchSet
-			if repository.GetDefaultBranch() != noDefaultBranchSet {
-				defaultBranch = repository.GetDefaultBranch()
-			}
-
-			newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repoOwner, repository.GetName(), rootPath, defaultKurtosisYamlFilename, numberOfStars, zeroValueTime, defaultBranch)
-			allPackageRepositoryMetadatas = append(allPackageRepositoryMetadatas, newPackageRepositoryMetadata)
-		}
-
-		if rawResponse.NextPage == 0 {
-			break
-		}
-		searchOpts.Page = rawResponse.NextPage
-	}
 	return allPackageRepositoryMetadatas, nil
 }
 

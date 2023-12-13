@@ -1,0 +1,5 @@
+packages:
+  - name: github.com/kurtosis-tech/postgres-package
+  - name: github.com/HugoByte/DIVE
+  - name: github.com/kurtosis-tech/agentgpt-package
+  - name: github.com/awesome-abstraction/arbitrum-stylus-package

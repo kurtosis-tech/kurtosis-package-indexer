@@ -6,6 +6,7 @@ import (
 	"github.com/google/go-github/v54/github"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/api_constructors"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/catalog"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/ticker"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
@@ -277,17 +278,17 @@ func (crawler *GithubCrawler) updateOrDeleteStoredPackages(ctx context.Context, 
 }
 
 func (crawler *GithubCrawler) addNewPackages(ctx context.Context, githubClient *github.Client, kurtosisPackageUpdated map[string]bool) (map[string]bool, error) {
-	logrus.Debugf("Going to search for potential new packages now...")
-	allKurtosisPackageLocatorsFromSearch, err := searchForKurtosisPackageRepositories(ctx, githubClient)
+	logrus.Debugf("Going to read the package catalog for potential new packages now...")
+	allKurtosisPakagesRepositoryMetadata, err := getPackagesRepositoryMetadata(ctx, githubClient)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "error search for Kurtosis package repositories on Github")
 	}
 
 	kurtosisPackageAdded := map[string]bool{}
-	for _, kurtosisPackageMetadata := range allKurtosisPackageLocatorsFromSearch {
+	for _, kurtosisPackageMetadata := range allKurtosisPakagesRepositoryMetadata {
 		packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 		if _, found := kurtosisPackageUpdated[packageRepositoryLocator]; found {
-			// package was already stored prior to this crawling. Its content has been refreshed above. Skipping it here
+			// package was already stored prior to this reading. Its content has been refreshed above. Skipping it here
 			continue
 		}
 
@@ -383,6 +384,41 @@ func convertArgumentType(argumentType *StarlarkArgumentType) (*generated.Package
 		packageArgumentType.InnerType_2 = &innerType2
 	}
 	return packageArgumentType, true
+}
+
+func getPackagesRepositoryMetadata(ctx context.Context, client *github.Client) ([]*PackageRepositoryMetadata, error) {
+
+	var allPackageRepositoryMetadatas []*PackageRepositoryMetadata
+	packagesCatalog, err := catalog.GetPackagesCatalog()
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred getting the packages catalog")
+	}
+
+	for _, packageData := range packagesCatalog {
+		repositoryOwner := packageData.GetRepositoryOwner()
+		repositoryName := packageData.GetRepositoryName()
+		repositoryPackageRootPath := packageData.GetRepositoryPackageRootPath()
+
+		repository, _, err := client.Repositories.Get(ctx, repositoryOwner, repositoryName)
+		if err != nil {
+			return nil, stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", repositoryName, repositoryOwner)
+		}
+
+		var numberOfStars uint64
+		if repository.GetStargazersCount() > 0 {
+			numberOfStars = uint64(repository.GetStargazersCount())
+		}
+
+		defaultBranch := noDefaultBranchSet
+		if repository.GetDefaultBranch() != noDefaultBranchSet {
+			defaultBranch = repository.GetDefaultBranch()
+		}
+
+		newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repositoryOwner, repositoryName, repositoryPackageRootPath, defaultKurtosisYamlFilename, numberOfStars, zeroValueTime, defaultBranch)
+		allPackageRepositoryMetadatas = append(allPackageRepositoryMetadatas, newPackageRepositoryMetadata)
+	}
+
+	return allPackageRepositoryMetadatas, nil
 }
 
 func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Client) ([]*PackageRepositoryMetadata, error) {

@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [bgazzard/publish-ts]
+    branches: [main]
 
 name: release-please
 jobs:
@@ -16,7 +16,6 @@ jobs:
           token: "${{ secrets.RELEASER_TOKEN }}"
           release-type: simple
           package-name: kurtosis-package-indexer
-          default-branch: bgazzard/publish-ts
           bump-minor-pre-major: true
           bump-patch-for-minor-pre-major: true
           # Our CI, Docker Images, Kurtosis-SDK bumps all depend on

@@ -10,7 +10,8 @@ import (
 )
 
 type InMemoryStore struct {
-	lastCrawlTime                    time.Time
+	lastMainCrawlTime                time.Time
+	lastSecondaryCrawlTime           time.Time
 	lastMetricsReporterQueryDatetime time.Time
 
 	packages         map[string]*generated.KurtosisPackage
@@ -19,7 +20,7 @@ type InMemoryStore struct {
 
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
-		lastCrawlTime:                    time.Time{},
+		lastMainCrawlTime:                time.Time{},
 		lastMetricsReporterQueryDatetime: time.Time{},
 		packages:                         map[string]*generated.KurtosisPackage{},
 		packagesRunCount:                 types.PackagesRunCount{},
@@ -51,16 +52,25 @@ func (store *InMemoryStore) DeletePackage(_ context.Context, packageLocator stri
 	return nil
 }
 
-func (store *InMemoryStore) UpdateLastCrawlDatetime(_ context.Context, lastCrawlTime time.Time) error {
-	store.lastCrawlTime = lastCrawlTime
+func (store *InMemoryStore) UpdateLastMainCrawlDatetime(_ context.Context, lastCrawlTime time.Time) error {
+	store.lastMainCrawlTime = lastCrawlTime
 	return nil
 }
 
-func (store *InMemoryStore) GetLastCrawlDatetime(_ context.Context) (time.Time, error) {
-	return store.lastCrawlTime, nil
+func (store *InMemoryStore) GetLastMainCrawlDatetime(_ context.Context) (time.Time, error) {
+	return store.lastMainCrawlTime, nil
 }
 
-func (store *InMemoryStore) UpdateLastMetricsQueryDatetime(ctx context.Context, lastMetricsQueryTime time.Time) error {
+func (store *InMemoryStore) UpdateLastSecondaryCrawlDatetime(_ context.Context, lastCrawlTime time.Time) error {
+	store.lastSecondaryCrawlTime = lastCrawlTime
+	return nil
+}
+
+func (store *InMemoryStore) GetLastSecondaryCrawlDatetime(_ context.Context) (time.Time, error) {
+	return store.lastSecondaryCrawlTime, nil
+}
+
+func (store *InMemoryStore) UpdateLastMetricsQueryDatetime(_ context.Context, lastMetricsQueryTime time.Time) error {
 	store.lastMetricsReporterQueryDatetime = lastMetricsQueryTime
 	return nil
 }

@@ -48,7 +48,7 @@ func (reporter *Reporter) Schedule(forceRunNow bool) error {
 		reporter.ticker.Stop()
 	}
 
-	lastMetricsQueryDatetime, err := reporter.store.GetLastCrawlDatetime(reporter.ctx)
+	lastMetricsQueryDatetime, err := reporter.store.GetLastMainCrawlDatetime(reporter.ctx)
 	if err != nil {
 		return stacktrace.Propagate(err, "An unexpected error occurred retrieving last metrics query datetime from the store")
 	}
@@ -106,7 +106,7 @@ func (reporter *Reporter) doUpdateMetricsNoFailure(ctx context.Context, tickerTi
 			logrus.Debugf("Reverting the last query datetime to '%s'. Current value is '%s'",
 				lastMetricsQueryDatetime, currentQueryDatetime)
 			// revert the query datetime to its previous value
-			if err = reporter.store.UpdateLastCrawlDatetime(reporter.ctx, lastMetricsQueryDatetime); err != nil {
+			if err = reporter.store.UpdateLastMainCrawlDatetime(reporter.ctx, lastMetricsQueryDatetime); err != nil {
 				logrus.Errorf("An error occurred reverting the last query datetime to '%s'. Its value"+
 					"will remain '%s' and no query will happen before '%s'. Error was:\n%v",
 					lastMetricsQueryDatetime, currentQueryDatetime, currentQueryDatetime.Add(queryFrequency), err.Error())

@@ -38,11 +38,9 @@ func main() {
 	configureLogger()
 
 	// Set up the store which will store all the packages. For now all in memory
-	indexerStore, err := store.InstantiateStoreFromEnvVar()
-	if err != nil {
-		exitFailure(err)
-	}
-	defer indexerStore.Close()
+	// I left a comment to remember that there were implementations for etcd and boltdb but, both were removed
+	// because they were not being used in production, simply to remember that both can be added again by checking the commit history
+	indexerStore := store.NewInMemoryStore()
 
 	indexerCtx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()

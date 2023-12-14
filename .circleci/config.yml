@@ -2,6 +2,7 @@ version: 2.1
 
 
 orbs:
+  npm-publisher: uraway/npm-publisher@0.2.0
   aws-cli: circleci/aws-cli@4.0
   aws-ecs: circleci/aws-ecs@4.0
 
@@ -79,12 +80,6 @@ jobs:
     docker:
       - image: "cimg/node:<< pipeline.parameters.ui-node-version>>"
     steps:
-      - slack/notify:
-          channel: engineering
-          event: fail
-          # You can preview this template and know more about templates here: https://github.com/CircleCI-Public/slack-orb/wiki#templates
-          template: basic_fail_1
-
       - checkout
       - run: api/typescript/scripts/build.sh
       - npm-publisher/publish-from-package-version:

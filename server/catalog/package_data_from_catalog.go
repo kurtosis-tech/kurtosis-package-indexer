@@ -18,8 +18,6 @@ const (
 )
 
 type packageDataFromCatalog struct {
-	//
-
 	// repositoryOwner is the repositoryOwner of the GitHub repository. It can be a GitHub organization or an individual user
 	repositoryOwner string
 
@@ -28,10 +26,6 @@ type packageDataFromCatalog struct {
 
 	// repositoryPackageRootPath is the path relative to the GitHub repository root where the kurtosis.yml file can be found
 	repositoryPackageRootPath string
-}
-
-func newPackageDataFromCatalog(repositoryOwner string, repositoryName string, repositoryPackageRootPath string) *packageDataFromCatalog {
-	return &packageDataFromCatalog{repositoryOwner: repositoryOwner, repositoryName: repositoryName, repositoryPackageRootPath: repositoryPackageRootPath}
 }
 
 func (mainMetadata *packageDataFromCatalog) GetRepositoryOwner() string {

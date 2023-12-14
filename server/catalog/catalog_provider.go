@@ -30,7 +30,9 @@ func GetPackagesCatalog() (PackageCatalog, error) {
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred getting the packages catalog file content")
 	}
-	newPackagesCatalogFileContent := &packagesCatalogFileContent{}
+	newPackagesCatalogFileContent := &packagesCatalogFileContent{
+		Packages: []map[string]string{},
+	}
 	if err = yaml.Unmarshal(fileContent, newPackagesCatalogFileContent); err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred unmarshalling the package catalog file content")
 	}

@@ -26,8 +26,6 @@ const (
 	defaultKurtosisYamlFilename = "kurtosis.yml"
 	starlarkMainDotStarFileName = "main.star"
 
-	githubPageSize = 100 // that's the maximum allowed by GitHub API
-
 	githubUrl = "github.com"
 
 	successfulParsingText = "Parsed package content successfully"
@@ -576,22 +574,6 @@ func addOrUpdatePackageRepositoryMetadataWithStarsAndLastCommitDate(
 	packageRepositoryMetadata.LastCommitTime = *latestCommitGitHubTimestamp.GetTime()
 
 	return nil
-}
-
-func getRepositoryOwner(repository *github.Repository) (string, error) {
-	// It's not clear what to use in the `GetContents` function called below, as the `owner` field. We would prefer to
-	// just pass in githubRepository.GetFullName() and that's it, but it doesn't work
-	// So, to parse the owner name, we try both the `Login` and `Name` field, taking the first one that is not empty.
-	// For repo owned by `kurtosis-tech` for example, it's the Login field that will be used, as the Name one is empty
-	// If this is too fragile, worst case we can regexp parse `githubRepository.GetFullName()`
-	if repository.GetOwner().GetLogin() != "" {
-		return repository.GetOwner().GetLogin(), nil
-	} else if repository.GetOwner().GetName() != "" {
-		return repository.GetOwner().GetName(), nil
-	}
-
-	return "", stacktrace.NewError("impossible to get owner from Github repository '%+v'", repository)
-
 }
 
 func getTimeInUTC() time.Time {

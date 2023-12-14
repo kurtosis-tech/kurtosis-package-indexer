@@ -7,7 +7,10 @@ import (
 	"time"
 )
 
-const gitHuhDownloadBaseURL = "https://raw.githubusercontent.com"
+const (
+	gitHuhDownloadBaseURL = "https://raw.githubusercontent.com"
+	rootPathSeparator     = "/"
+)
 
 type PackageRepositoryMetadata struct {
 	// Owner is the owner of the Github repository. It can be a Github organization or an individual user
@@ -54,7 +57,11 @@ func NewPackageRepositoryMetadata(
 }
 
 func (metadata *PackageRepositoryMetadata) GetLocator() string {
-	return fmt.Sprintf("%s/%s/%s", metadata.Owner, metadata.Name, metadata.RootPath)
+	rooPath := metadata.RootPath
+	if rooPath == rootPathSeparator {
+		rooPath = ""
+	}
+	return fmt.Sprintf("%s/%s/%s", metadata.Owner, metadata.Name, rooPath)
 }
 
 func (metadata *PackageRepositoryMetadata) GetDownloadRootURL() (string, error) {

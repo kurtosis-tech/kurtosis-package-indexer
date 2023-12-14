@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.18](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.17...0.0.18) (2023-12-14)
+
+
+### Bug Fixes
+
+* try without token? ([a847499](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/a84749948a10a1a20c11831a2985407df84b80fd))
+
 ## [0.0.17](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.16...0.0.17) (2023-12-12)
 
 

@@ -17,7 +17,7 @@ type InMemoryStore struct {
 	packagesRunCount types.PackagesRunCount
 }
 
-func newInMemoryStore() *InMemoryStore {
+func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
 		lastCrawlTime:                    time.Time{},
 		lastMetricsReporterQueryDatetime: time.Time{},

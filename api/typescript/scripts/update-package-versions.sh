@@ -18,7 +18,7 @@ REPLACE_PATTERN="(\"version\": \")[0-9]+.[0-9]+.[0-9]+(\")"
 show_helptext_and_exit() {
     echo "Usage: $(basename "${0}") new_version"
     echo ""
-    echo "  new_version         The new version that the lerna configuration should contain"
+    echo "  new_version   The version of this repo that is about to released"
     echo ""
     exit 1  # Exit with an error so that if this is accidentally called by CI, the script will fail
 }

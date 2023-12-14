@@ -174,9 +174,7 @@ workflows:
             - npmjs-user
           filters:
             branches:
-              ignore: /.*/
-            tags:
-              only: /^[0-9]+\.[0-9]+\.[0-9]+$/
+              only: bgazzard/publish-ts
       - deploy_kurtosis_package_indexer_service:
           context:
             - aws-terraform-user

@@ -12,6 +12,9 @@ parameters:
   docker-engine-version:
     type: string
     default: "20.10.7"
+  ui-node-version:
+    type: string
+    default: 18.19.0
 
 executors:
   ubuntu_vm:
@@ -71,6 +74,22 @@ jobs:
       - run: |
           set -euo pipefail
           kurtosis run ./kurtosis/main.star --enclave ci-check "{\"kurtosis_package_indexer_version\": \"dev\", \"github_user_token\": \"${KURTOSISBOT_GITHUB_TOKEN}\"}"
+
+  publish_kurtosis_typescript_libs:
+    docker:
+      - image: "cimg/node:<< pipeline.parameters.ui-node-version>>"
+    steps:
+      - slack/notify:
+          channel: engineering
+          event: fail
+          # You can preview this template and know more about templates here: https://github.com/CircleCI-Public/slack-orb/wiki#templates
+          template: basic_fail_1
+
+      - checkout
+      - run: api/typescript/scripts/build.sh
+      - npm-publisher/publish-from-package-version:
+          package-path: api/typescript
+          publish-token-variable: NPMJS_AUTH_TOKEN
 
   publish_server_image:
     docker:
@@ -155,6 +174,12 @@ workflows:
               ignore: /.*/
             tags:
               only: /^[0-9]+\.[0-9]+\.[0-9]+$/
+      - publish_kurtosis_typescript_libs:
+          context:
+            - npmjs-user
+          filters:
+            branches:
+              only: bgazzard/publish-ts
       - deploy_kurtosis_package_indexer_service:
           context:
             - aws-terraform-user

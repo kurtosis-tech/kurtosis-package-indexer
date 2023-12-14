@@ -7,7 +7,6 @@ import (
 )
 
 func TestCreatePackageDataFromCatalogFromPackageName_Success(t *testing.T) {
-	// TODO use constants
 	packageNameTestList := []types.PackageName{
 		types.PackageName("github.com/kurtosis-tech/postgres-package"),
 		types.PackageName("github.com/kurtosis-tech/awesome-kurtosis/data-package"),

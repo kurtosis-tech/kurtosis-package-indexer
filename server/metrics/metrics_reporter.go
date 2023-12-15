@@ -23,6 +23,7 @@ type Reporter struct {
 }
 
 func CreateAndScheduleReporter(ctx context.Context, store store.KurtosisIndexerStore) (*Reporter, error) {
+	return nil, nil
 	snowflakeObj, err := createSnowflake()
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred creating the Snowflake object")

@@ -6,6 +6,7 @@ import (
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -14,7 +15,8 @@ type InMemoryStore struct {
 	lastSecondaryCrawlTime           time.Time
 	lastMetricsReporterQueryDatetime time.Time
 
-	packages         map[string]*generated.KurtosisPackage
+	// using sync.Map because we have several sub-routines (the scheduled jobs) writing on it and this map supports concurrency
+	packages         sync.Map
 	packagesRunCount types.PackagesRunCount
 }
 
@@ -22,7 +24,7 @@ func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
 		lastMainCrawlTime:                time.Time{},
 		lastMetricsReporterQueryDatetime: time.Time{},
-		packages:                         map[string]*generated.KurtosisPackage{},
+		packages:                         sync.Map{},
 		packagesRunCount:                 types.PackagesRunCount{},
 	}
 }
@@ -33,9 +35,10 @@ func (store *InMemoryStore) Close() error {
 
 func (store *InMemoryStore) GetKurtosisPackages(_ context.Context) ([]*generated.KurtosisPackage, error) {
 	var packages []*generated.KurtosisPackage
-	for _, kurtosisPackage := range store.packages {
-		packages = append(packages, kurtosisPackage)
-	}
+	store.packages.Range(func(k, kurtosisPackage interface{}) bool {
+		packages = append(packages, kurtosisPackage.(*generated.KurtosisPackage))
+		return true
+	})
 	sort.SliceStable(packages, func(i, j int) bool {
 		return strings.ToLower(packages[i].GetUrl()) < strings.ToLower(packages[j].GetUrl())
 	})
@@ -43,12 +46,12 @@ func (store *InMemoryStore) GetKurtosisPackages(_ context.Context) ([]*generated
 }
 
 func (store *InMemoryStore) UpsertPackage(_ context.Context, kurtosisPackageLocator string, kurtosisPackage *generated.KurtosisPackage) error {
-	store.packages[kurtosisPackageLocator] = kurtosisPackage
+	store.packages.Store(kurtosisPackageLocator, kurtosisPackage)
 	return nil
 }
 
 func (store *InMemoryStore) DeletePackage(_ context.Context, packageLocator string) error {
-	delete(store.packages, packageLocator)
+	store.packages.Delete(packageLocator)
 	return nil
 }
 

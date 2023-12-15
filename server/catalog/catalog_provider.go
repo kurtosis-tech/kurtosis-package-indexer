@@ -62,9 +62,11 @@ func getPackagesCatalogFileContent() ([]byte, error) {
 }
 
 func newPackageCatalogFromPackageCatalogFileContent(catalogFileContent *packagesCatalogFileContent) (PackageCatalog, error) {
-	packagesData := []packageDataFromCatalog{}
+	catalogPackages := catalogFileContent.Packages
 
-	for _, packageMap := range catalogFileContent.Packages {
+	packagesData := make([]packageDataFromCatalog, len(catalogPackages))
+
+	for packageIndex, packageMap := range catalogPackages {
 		packageNameStr, found := packageMap[packageNameKey]
 		if !found {
 			return nil, stacktrace.NewError("expected to find key '%s' in the package catalog file content, but it was not found. The %s file could be corrupted", packageNameKey, defaultKurtosisPackageCatalogYamlFileName)
@@ -75,7 +77,7 @@ func newPackageCatalogFromPackageCatalogFileContent(catalogFileContent *packages
 			return nil, stacktrace.Propagate(err, "an error occurred creating package catalog data from package name '%s'", packageName)
 		}
 
-		packagesData = append(packagesData, *packageDataFromCatalogObj)
+		packagesData[packageIndex] = *packageDataFromCatalogObj
 	}
 
 	return packagesData, nil

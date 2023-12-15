@@ -24,7 +24,7 @@ const (
 	secondaryCrawlFrequency = 30 * time.Minute
 	crawlIntervalBuffer     = 15 * time.Second
 
-	defaultSecondaryCrawlInitialDelay = secondaryCrawlFrequency
+	defaultSecondaryCrawlInitialDelay = 30 * time.Minute //TODO put 30 min
 
 	defaultKurtosisYamlFilename = "kurtosis.yml"
 	starlarkMainDotStarFileName = "main.star"
@@ -67,12 +67,17 @@ func NewGitHubCrawler(ctx context.Context, store store.KurtosisIndexerStore) (*G
 
 func (crawler *GithubCrawler) Schedule(forceRunNow bool) error {
 	if crawler.mainTicker != nil {
-		logrus.Infof("Crawler already scheduled - stopping it first")
+		logrus.Infof("Main crawler already scheduled - stopping it first")
 		crawler.mainTicker.Stop()
 	}
 
 	if err := crawler.scheduleMainCrawler(forceRunNow); err != nil {
 		return stacktrace.Propagate(err, "an error occurred scheduling the main crawler")
+	}
+
+	if crawler.secondaryTicker != nil {
+		logrus.Infof("Secondary crawler already scheduled - stopping it first")
+		crawler.secondaryTicker.Stop()
 	}
 
 	if err := crawler.scheduleSecondaryCrawler(forceRunNow); err != nil {
@@ -129,16 +134,16 @@ func (crawler *GithubCrawler) scheduleSecondaryCrawler(forceRunNow bool) error {
 	}
 	logrus.Infof("Secondary crawler starting with an initial delay of '%v' and a period of '%v'", initialDelay, secondaryCrawlFrequency)
 
-	crawler.mainTicker = ticker.NewTicker(initialDelay, secondaryCrawlFrequency)
+	crawler.secondaryTicker = ticker.NewTicker(initialDelay, secondaryCrawlFrequency)
 	go func() {
 		for {
 			select {
 			case <-crawler.ctx.Done():
 				logrus.Info("Secondary crawler has been closed. Returning")
-				crawler.mainTicker.Stop()
+				crawler.secondaryTicker.Stop()
 				return
-			case tickerTime := <-crawler.mainTicker.C:
-				crawler.doMainCrawlNoFailure(crawler.ctx, tickerTime)
+			case tickerTime := <-crawler.secondaryTicker.C:
+				crawler.doSecondaryCrawlNoFailure(crawler.ctx, tickerTime)
 			}
 		}
 	}()
@@ -287,25 +292,27 @@ func (crawler *GithubCrawler) doSecondaryCrawlNoFailure(ctx context.Context, tic
 	}
 
 	logrus.Info("Crawling Github for updating Kurtosis packages stars and last commit time")
-
-	/*if err != nil {
-		logrus.Errorf("An error occurred crawling Github for Kurtosis packages. The last crawl datetime"+
-			"will be reverted to its previous value '%v'. This node will try crawling again in '%v'. "+
-			"Error was:\n%s", lastCrawlDatetime, mainCrawlFrequency, err.Error())
+	packageUpdated, packagesFailed, err := crawler.updateAllPackagesStarsDefaultBranchAndLastCommitDate(ctx, githubClient)
+	if err != nil {
+		logrus.Errorf("An error occurred crawling GitHub for Kurtosis packages stars and last commit time. "+
+			"The last secondary crawl datetime will be reverted to its previous value '%v'. This node will try crawling again in '%v'. "+
+			"Error was:\n%s", lastCrawlDatetime, secondaryCrawlFrequency, err.Error())
 		crawlSuccessful = false
 	} else {
 		crawlSuccessful = true
 	}
-	logrus.Infof("Crawling finished in %v. Success: '%v'. Repository updated: %d - added: %d - removed: %d",
-		time.Since(tickerTime), crawlSuccessful, packageUpdated, packageAdded, packageRemoved)*/
+	logrus.Infof("Crawling for stars and last commit time finished in %v. Success: '%v'. Repository updated: %d - failed: %d ",
+		time.Since(tickerTime), crawlSuccessful, packageUpdated, packagesFailed)
 }
 
-func (crawler *GithubCrawler) updateAllPackagesStarsDefaultBranchAndLastCommitDate(ctx context.Context, client *github.Client) error {
+func (crawler *GithubCrawler) updateAllPackagesStarsDefaultBranchAndLastCommitDate(ctx context.Context, client *github.Client) (uint32, uint32, error) {
 	allStoredPackages, err := crawler.store.GetKurtosisPackages(ctx)
 	if err != nil {
-		return stacktrace.Propagate(err, "An error occurred retrieving currently stored packages")
+		return 0, 0, stacktrace.Propagate(err, "An error occurred retrieving currently stored packages")
 	}
 
+	packagesUpdated := uint32(0)
+	packagesFailed := uint32(len(allStoredPackages))
 	for _, kurtosisPackage := range allStoredPackages {
 		repositoryOwner := kurtosisPackage.RepositoryMetadata.GetOwner()
 		repositoryName := kurtosisPackage.RepositoryMetadata.GetName()
@@ -313,7 +320,7 @@ func (crawler *GithubCrawler) updateAllPackagesStarsDefaultBranchAndLastCommitDa
 
 		defaultBranch, stars, lastCommitTime, err := getRepositoryStarsDefaultBranchAndLastCommitDate(ctx, client, repositoryOwner, repositoryName)
 		if err != nil {
-			return stacktrace.Propagate(err, "an error occurred while getting the repo stars, default branch and last commit time for repository '%s'", repositoryName)
+			return 0, 0, stacktrace.Propagate(err, "an error occurred while getting the repo stars, default branch and last commit time for repository '%s'", repositoryName)
 		}
 
 		kurtosisPackage.Stars = stars
@@ -333,11 +340,14 @@ func (crawler *GithubCrawler) updateAllPackagesStarsDefaultBranchAndLastCommitDa
 		kurtosisPackageLocator := packageRepositoryMetadata.GetLocator()
 
 		if err := crawler.store.UpsertPackage(ctx, kurtosisPackageLocator, kurtosisPackage); err != nil {
-			return stacktrace.Propagate(err, "an error occurred updating Kurtosis package '%s'", kurtosisPackageLocator)
+			return 0, 0, stacktrace.Propagate(err, "an error occurred updating Kurtosis package '%s'", kurtosisPackageLocator)
 		}
+		logrus.Debugf("Kurtosis package stars and last commit time updated for package '%s'", kurtosisPackage.Name)
+		packagesFailed--
+		packagesUpdated++
 	}
 
-	return nil
+	return packagesUpdated, packagesFailed, nil
 }
 
 // TODO review this because it could be optimized, right now the ReadPackages method is calling it
@@ -541,13 +551,13 @@ func convertArgumentType(argumentType *StarlarkArgumentType) (*generated.Package
 // for each package, for this reason this function should be called only when adding new packages for avoid GitHub rate limits
 func readCatalogAndGetPackagesRepositoryMetadata(ctx context.Context, client *github.Client) ([]*PackageRepositoryMetadata, error) {
 
-	var allPackageRepositoryMetadatas []*PackageRepositoryMetadata
 	packagesCatalog, err := catalog.GetPackagesCatalog()
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred getting the packages catalog")
 	}
 
-	for _, packageData := range packagesCatalog {
+	allPackageRepositoryMetadatas := make([]*PackageRepositoryMetadata, len(packagesCatalog))
+	for packageIndex, packageData := range packagesCatalog {
 		repositoryOwner := packageData.GetRepositoryOwner()
 		repositoryName := packageData.GetRepositoryName()
 		repositoryPackageRootPath := packageData.GetRepositoryPackageRootPath()
@@ -559,7 +569,7 @@ func readCatalogAndGetPackagesRepositoryMetadata(ctx context.Context, client *gi
 
 		newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repositoryOwner, repositoryName, repositoryPackageRootPath, defaultKurtosisYamlFilename, stars, *lastCommitTime, defaultBranch)
 
-		allPackageRepositoryMetadatas = append(allPackageRepositoryMetadatas, newPackageRepositoryMetadata)
+		allPackageRepositoryMetadatas[packageIndex] = newPackageRepositoryMetadata
 	}
 
 	return allPackageRepositoryMetadatas, nil

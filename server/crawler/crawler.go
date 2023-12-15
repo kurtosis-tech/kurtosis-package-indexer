@@ -154,15 +154,21 @@ func (crawler *GithubCrawler) ReadPackage(
 	ctx context.Context,
 	apiRepositoryMetadata *generated.PackageRepository,
 ) (*generated.KurtosisPackage, error) {
-	kurtosisPackageMetadata := NewPackageRepositoryMetadata(
+
+	// creating this object just to call the GetLocator method
+	incompletePackageMetadata := NewPackageRepositoryMetadata(
 		apiRepositoryMetadata.GetOwner(),
 		apiRepositoryMetadata.GetName(),
 		apiRepositoryMetadata.GetRootPath(),
 		defaultKurtosisYamlFilename,
-		noStartsSet,        // it will be updated extractKurtosisPackageContent below
-		zeroValueTime,      // it will be updated extractKurtosisPackageContent below
-		noDefaultBranchSet, // it will be updated extractKurtosisPackageContent below
+		noStartsSet,        // it will get it from the storage to avoid shooting an extra GitHub request
+		zeroValueTime,      // it will get it from the storage to avoid shooting an extra GitHub request
+		noDefaultBranchSet, // it will get it from the storage to avoid shooting an extra GitHub request
 	)
+
+	packageLocator := incompletePackageMetadata.GetLocator()
+
+	kurtosisPackage := crawler.store.G(ctx, packageLocator)
 
 	githubClient, err := createGithubClient(ctx)
 	if err != nil {

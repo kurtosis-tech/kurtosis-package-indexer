@@ -16,6 +16,9 @@ type KurtosisIndexerStore interface {
 	// GetKurtosisPackages returns the entire list of Kurtosis packages currently stored by the indexer
 	GetKurtosisPackages(ctx context.Context) ([]*generated.KurtosisPackage, error)
 
+	// GetKurtosisPackage returns the Kurtosis package with locator currently stored by the indexer
+	GetKurtosisPackage(_ context.Context, kurtosisPackageLocator string) (*generated.KurtosisPackage, error)
+
 	// UpsertPackage either insert or update the Kurtosis package information stored with the locator
 	// `kurtosisPackageLocator`
 	UpsertPackage(ctx context.Context, kurtosisPackageLocator string, kurtosisPackage *generated.KurtosisPackage) error

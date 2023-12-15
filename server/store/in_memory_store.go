@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
+	"github.com/kurtosis-tech/stacktrace"
 	"sort"
 	"strings"
 	"sync"
@@ -43,6 +44,14 @@ func (store *InMemoryStore) GetKurtosisPackages(_ context.Context) ([]*generated
 		return strings.ToLower(packages[i].GetUrl()) < strings.ToLower(packages[j].GetUrl())
 	})
 	return packages, nil
+}
+
+func (store *InMemoryStore) GetKurtosisPackage(_ context.Context, kurtosisPackageLocator string) (*generated.KurtosisPackage, error) {
+	kurtosisPackage, found := store.packages.Load(kurtosisPackageLocator)
+	if !found {
+		return nil, stacktrace.NewError("Expected to find the kurtosis package '%s' in the storage but it was not found", kurtosisPackageLocator)
+	}
+	return kurtosisPackage.(*generated.KurtosisPackage), nil
 }
 
 func (store *InMemoryStore) UpsertPackage(_ context.Context, kurtosisPackageLocator string, kurtosisPackage *generated.KurtosisPackage) error {

@@ -4,18 +4,12 @@ import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
-	"github.com/kurtosis-tech/stacktrace"
-	"github.com/sirupsen/logrus"
-	"os"
-	"strings"
 	"time"
 )
 
-const (
-	boltDatabaseFilePathEnvVarName = "BOLT_DATABASE_FILE_PATH"
-	etcdDatabaseUrlsEnvVarName     = "ETCD_DATABASE_URLS"
-)
-
+// KurtosisIndexerStore is the contract for the indexer store
+// I left a comment to remember that there were implementations for etcd and boltdb but, both were removed
+// because they were not being used in production, simply to remember that both can be added again by checking the commit history
 type KurtosisIndexerStore interface {
 	Close() error
 
@@ -58,35 +52,4 @@ type KurtosisIndexerStore interface {
 
 	// UpdatePackagesRunCount updates the packages run count value to the latest obtained from the metrics reporter
 	UpdatePackagesRunCount(ctx context.Context, newPackagesRunCount types.PackagesRunCount) error
-}
-
-func InstantiateStoreFromEnvVar() (KurtosisIndexerStore, error) {
-	etcdDatabaseUrls := os.Getenv(etcdDatabaseUrlsEnvVarName)
-	if etcdDatabaseUrls != "" {
-		logrus.Infof("Environment variable '%s' recognized ('%s'). Instanciating etcd database client",
-			etcdDatabaseUrlsEnvVarName, etcdDatabaseUrls)
-		var etcdUrls []string
-		for _, url := range strings.Split(etcdDatabaseUrls, ",") {
-			etcdUrls = append(etcdUrls, strings.TrimSpace(url))
-		}
-		etcdStore, err := createEtcdBackedStore(etcdUrls)
-		if err != nil {
-			return nil, stacktrace.Propagate(err, "Error creating store backed by etcd")
-		}
-		return etcdStore, nil
-	}
-
-	boltDatabaseFilePath := os.Getenv(boltDatabaseFilePathEnvVarName)
-	if boltDatabaseFilePath != "" {
-		logrus.Infof("Environment variable '%s' recognized ('%s'). Instanciating Bbolt database",
-			boltDatabaseFilePathEnvVarName, boltDatabaseFilePath)
-		boltStore, err := createBboltStore(boltDatabaseFilePath)
-		if err != nil {
-			return nil, stacktrace.Propagate(err, "Error creating Bbolt store")
-		}
-		return boltStore, nil
-	}
-	// env var not set, default to in-memory store
-	logrus.Infof("No environment variable set for the store, defaulting to in-memory store")
-	return newInMemoryStore(), nil
 }

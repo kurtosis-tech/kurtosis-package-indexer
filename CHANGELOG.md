@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.19](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.18...0.0.19) (2023-12-15)
+
+
+### Features
+
+* remove bolt and etcd storage implementations ([#83](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/83)) ([b94c6cc](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/b94c6cc15be4c275897b729017ff9b15c6f9e8df))
+
 ## [0.0.18](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.17...0.0.18) (2023-12-14)
 
 

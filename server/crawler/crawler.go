@@ -33,7 +33,7 @@ const (
 
 	successfulParsingText = "Parsed package content successfully"
 
-	noStartsSet = 0
+	noStartsSet = uint64(0)
 
 	noDefaultBranchSet = ""
 
@@ -150,45 +150,77 @@ func (crawler *GithubCrawler) scheduleSecondaryCrawler(forceRunNow bool) error {
 	return nil
 }
 
+// ReadPackage returns a KurtosisPackage requested by its repository owner, name and root path
+// the KurtosisPackage returned should we filled with fresh data expect for some fields
+// we decided to cache in the storage, like the repository stars and the last commit time
 func (crawler *GithubCrawler) ReadPackage(
 	ctx context.Context,
 	apiRepositoryMetadata *generated.PackageRepository,
 ) (*generated.KurtosisPackage, error) {
 
-	// creating this object just to call the GetLocator method
-	incompletePackageMetadata := NewPackageRepositoryMetadata(
-		apiRepositoryMetadata.GetOwner(),
-		apiRepositoryMetadata.GetName(),
-		apiRepositoryMetadata.GetRootPath(),
-		defaultKurtosisYamlFilename,
-		noStartsSet,        // it will get it from the storage to avoid shooting an extra GitHub request
-		zeroValueTime,      // it will get it from the storage to avoid shooting an extra GitHub request
-		noDefaultBranchSet, // it will get it from the storage to avoid shooting an extra GitHub request
-	)
-
-	packageLocator := incompletePackageMetadata.GetLocator()
-
-	kurtosisPackage := crawler.store.G(ctx, packageLocator)
+	packageMetadata := crawler.getPackageMetadataFromStorageOrDefault(ctx, apiRepositoryMetadata.GetOwner(), apiRepositoryMetadata.GetName(), apiRepositoryMetadata.GetRootPath())
 
 	githubClient, err := createGithubClient(ctx)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred while creating the github client")
 	}
 
-	packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
-
 	packagesRunCount := crawler.getPackagesRunCountNotFailure(ctx)
-	kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata, packagesRunCount)
+	kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, packageMetadata, packagesRunCount)
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
+		return nil, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageMetadata.GetLocator())
 	}
 	if !packageFound {
 		logrus.Warn("No Kurtosis package found.") // don't want to log provided package repository locator bc it's a security risk (e.g. malicious data)
-		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageRepositoryLocator, defaultKurtosisYamlFilename, starlarkMainDotStarFileName)
+		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageMetadata.GetLocator(), defaultKurtosisYamlFilename, starlarkMainDotStarFileName)
 	}
 
 	kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)
 	return kurtosisPackageApi, nil
+}
+
+func (crawler *GithubCrawler) getPackageMetadataFromStorageOrDefault(ctx context.Context, repositoryOwner string, repositoryName string, repositoryPackageRootPath string) *PackageRepositoryMetadata {
+
+	// setting default values for the cached data
+	repositoryStars := noStartsSet
+	repositoryLastCommitTime := zeroValueTime
+	repositoryDefaultBranch := noDefaultBranchSet
+
+	// creating this first package metadata just to call the GetLocator method
+	incompletePackageMetadata := NewPackageRepositoryMetadata(
+		repositoryOwner,
+		repositoryName,
+		repositoryPackageRootPath,
+		defaultKurtosisYamlFilename,
+		repositoryStars,          // it will be filled below when we get this from the storage to avoid shooting an extra GitHub request
+		repositoryLastCommitTime, // it will be filled below when we get this from the storage to avoid shooting an extra GitHub request
+		repositoryDefaultBranch,  // it will be filled below when we get this from the storage to avoid shooting an extra GitHub request
+	)
+
+	packageLocator := incompletePackageMetadata.GetLocator()
+
+	// Doing the best effort to get the cached package info from the storage but, it could fail because the package
+	// was not already saved in the storage or, so, default values will be returned instead
+	kurtosisPackage, err := crawler.store.GetKurtosisPackage(ctx, packageLocator)
+	if err != nil {
+		logrus.Errorf("an error occurred getting Kurtosis package '%s' from the storage, this could be because the packages was not already saved in the storage. Error was:\n%s", packageLocator, err.Error())
+	} else {
+		repositoryStars = kurtosisPackage.GetStars()
+		repositoryLastCommitTime = kurtosisPackage.GetRepositoryMetadata().GetLastCommitTime().AsTime()
+		repositoryDefaultBranch = kurtosisPackage.GetRepositoryMetadata().GetDefaultBranch()
+	}
+
+	newPackageRepositoryMetadata := NewPackageRepositoryMetadata(
+		repositoryOwner,
+		repositoryName,
+		repositoryPackageRootPath,
+		defaultKurtosisYamlFilename,
+		repositoryStars,
+		repositoryLastCommitTime,
+		repositoryDefaultBranch,
+	)
+
+	return newPackageRepositoryMetadata
 }
 
 func (crawler *GithubCrawler) doMainCrawlNoFailure(ctx context.Context, tickerTime time.Time) {

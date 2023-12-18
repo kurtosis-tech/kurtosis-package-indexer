@@ -6,6 +6,7 @@ import (
 	"github.com/google/go-github/v54/github"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/api_constructors"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/catalog"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/ticker"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
@@ -24,8 +25,6 @@ const (
 
 	defaultKurtosisYamlFilename = "kurtosis.yml"
 	starlarkMainDotStarFileName = "main.star"
-
-	githubPageSize = 100 // that's the maximum allowed by GitHub API
 
 	githubUrl = "github.com"
 
@@ -277,17 +276,17 @@ func (crawler *GithubCrawler) updateOrDeleteStoredPackages(ctx context.Context, 
 }
 
 func (crawler *GithubCrawler) addNewPackages(ctx context.Context, githubClient *github.Client, kurtosisPackageUpdated map[string]bool) (map[string]bool, error) {
-	logrus.Debugf("Going to search for potential new packages now...")
-	allKurtosisPackageLocatorsFromSearch, err := searchForKurtosisPackageRepositories(ctx, githubClient)
+	logrus.Debugf("Going to read the package catalog for potential new packages now...")
+	allKurtosisPackagesRepositoryMetadata, err := getPackagesRepositoryMetadata(ctx, githubClient)
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "error search for Kurtosis package repositories on Github")
+		return nil, stacktrace.Propagate(err, "and error occurred getting the packages repository metadata")
 	}
 
 	kurtosisPackageAdded := map[string]bool{}
-	for _, kurtosisPackageMetadata := range allKurtosisPackageLocatorsFromSearch {
+	for _, kurtosisPackageMetadata := range allKurtosisPackagesRepositoryMetadata {
 		packageRepositoryLocator := kurtosisPackageMetadata.GetLocator()
 		if _, found := kurtosisPackageUpdated[packageRepositoryLocator]; found {
-			// package was already stored prior to this crawling. Its content has been refreshed above. Skipping it here
+			// package was already stored prior to this reading. Its content has been refreshed above. Skipping it here
 			continue
 		}
 
@@ -385,64 +384,38 @@ func convertArgumentType(argumentType *StarlarkArgumentType) (*generated.Package
 	return packageArgumentType, true
 }
 
-func searchForKurtosisPackageRepositories(ctx context.Context, client *github.Client) ([]*PackageRepositoryMetadata, error) {
-	// Pagination logic taken from https://github.com/google/go-github/tree/master#pagination
+func getPackagesRepositoryMetadata(ctx context.Context, client *github.Client) ([]*PackageRepositoryMetadata, error) {
 
 	var allPackageRepositoryMetadatas []*PackageRepositoryMetadata
-	searchOpts := &github.SearchOptions{
-		Sort:      "stars",
-		Order:     "desc",
-		TextMatch: false,
-		ListOptions: github.ListOptions{
-			Page:    1,
-			PerPage: githubPageSize,
-		},
+	packagesCatalog, err := catalog.GetPackagesCatalog()
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred getting the packages catalog")
 	}
-	searchQuery := fmt.Sprintf("filename:%s", defaultKurtosisYamlFilename)
-	for {
-		repoSearchResult, rawResponse, err := client.Search.Code(ctx, searchQuery, searchOpts)
+
+	for _, packageData := range packagesCatalog {
+		repositoryOwner := packageData.GetRepositoryOwner()
+		repositoryName := packageData.GetRepositoryName()
+		repositoryPackageRootPath := packageData.GetRepositoryPackageRootPath()
+
+		repository, _, err := client.Repositories.Get(ctx, repositoryOwner, repositoryName)
 		if err != nil {
-			return nil, stacktrace.Propagate(err, "An error occurred searching for Kurtosis package repositories - page number %d", searchOpts.Page)
+			return nil, stacktrace.Propagate(err, "an error occurred getting repository '%s' owned by '%s'", repositoryName, repositoryOwner)
 		}
 
-		for _, searchResult := range repoSearchResult.CodeResults {
-			rootPath := strings.TrimSuffix(*searchResult.Path, defaultKurtosisYamlFilename)
-			if rootPath == *searchResult.Path {
-				// it means nothing was trimmed. It's likely invalid
-				logrus.Warnf("A search result was invalid because the path to the file did not finish with '%s'. "+
-					"Resository was: '%s', path was: '%s'", defaultKurtosisYamlFilename, *searchResult.Repository.FullName,
-					*searchResult.Path)
-				continue
-			}
-
-			repository := searchResult.Repository
-
-			repoOwner, err := getRepositoryOwner(repository)
-			if err != nil {
-				logrus.Warnf("Search result '%s' was invalid b/c the Github repository has no owner",
-					repository.GetFullName())
-				continue
-			}
-
-			var numberOfStars uint64
-			if repository.GetStargazersCount() > 0 {
-				numberOfStars = uint64(repository.GetStargazersCount())
-			}
-
-			defaultBranch := noDefaultBranchSet
-			if repository.GetDefaultBranch() != noDefaultBranchSet {
-				defaultBranch = repository.GetDefaultBranch()
-			}
-
-			newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repoOwner, repository.GetName(), rootPath, defaultKurtosisYamlFilename, numberOfStars, zeroValueTime, defaultBranch)
-			allPackageRepositoryMetadatas = append(allPackageRepositoryMetadatas, newPackageRepositoryMetadata)
+		var numberOfStars uint64
+		if repository.GetStargazersCount() > 0 {
+			numberOfStars = uint64(repository.GetStargazersCount())
 		}
 
-		if rawResponse.NextPage == 0 {
-			break
+		defaultBranch := noDefaultBranchSet
+		if repository.GetDefaultBranch() != noDefaultBranchSet {
+			defaultBranch = repository.GetDefaultBranch()
 		}
-		searchOpts.Page = rawResponse.NextPage
+
+		newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repositoryOwner, repositoryName, repositoryPackageRootPath, defaultKurtosisYamlFilename, numberOfStars, zeroValueTime, defaultBranch)
+		allPackageRepositoryMetadatas = append(allPackageRepositoryMetadatas, newPackageRepositoryMetadata)
 	}
+
 	return allPackageRepositoryMetadatas, nil
 }
 
@@ -601,22 +574,6 @@ func addOrUpdatePackageRepositoryMetadataWithStarsAndLastCommitDate(
 	packageRepositoryMetadata.LastCommitTime = *latestCommitGitHubTimestamp.GetTime()
 
 	return nil
-}
-
-func getRepositoryOwner(repository *github.Repository) (string, error) {
-	// It's not clear what to use in the `GetContents` function called below, as the `owner` field. We would prefer to
-	// just pass in githubRepository.GetFullName() and that's it, but it doesn't work
-	// So, to parse the owner name, we try both the `Login` and `Name` field, taking the first one that is not empty.
-	// For repo owned by `kurtosis-tech` for example, it's the Login field that will be used, as the Name one is empty
-	// If this is too fragile, worst case we can regexp parse `githubRepository.GetFullName()`
-	if repository.GetOwner().GetLogin() != "" {
-		return repository.GetOwner().GetLogin(), nil
-	} else if repository.GetOwner().GetName() != "" {
-		return repository.GetOwner().GetName(), nil
-	}
-
-	return "", stacktrace.NewError("impossible to get owner from Github repository '%+v'", repository)
-
 }
 
 func getTimeInUTC() time.Time {

@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/utils"
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/sirupsen/logrus"
 	sf "github.com/snowflakedb/gosnowflake"
-	"os"
 	"time"
 )
 
@@ -178,37 +178,25 @@ func getSnowflakeDSN() (string, error) {
 }
 
 func getSnowflakeAccountFromEnvVar() (string, error) {
-	return getFromEnvVar(kurtosisSnowflakeAccountIdentifierEnvVarKey, "Snowflake account identifier")
+	return utils.GetFromEnvVar(kurtosisSnowflakeAccountIdentifierEnvVarKey, "Snowflake account identifier")
 }
 
 func getSnowflakeUserFromEnvVar() (string, error) {
-	return getFromEnvVar(kurtosisSnowflakeUserEnvVarKey, "Snowflake user")
+	return utils.GetFromEnvVar(kurtosisSnowflakeUserEnvVarKey, "Snowflake user")
 }
 
 func getSnowflakePasswordFromEnvVar() (string, error) {
-	return getFromEnvVar(kurtosisSnowflakePasswordEnvVarKey, "Snowflake password")
+	return utils.GetFromEnvVar(kurtosisSnowflakePasswordEnvVarKey, "Snowflake password")
 }
 
 func getSnowflakeDatabaseFromEnvVar() (string, error) {
-	return getFromEnvVar(kurtosisSnowflakeDatabaseEnvVarKey, "Snowflake database")
+	return utils.GetFromEnvVar(kurtosisSnowflakeDatabaseEnvVarKey, "Snowflake database")
 }
 
 func getSnowflakeWarehouseFromEnvVar() (string, error) {
-	return getFromEnvVar(kurtosisSnowflakeWarehouseEnvVarKey, "Snowflake warehouse")
+	return utils.GetFromEnvVar(kurtosisSnowflakeWarehouseEnvVarKey, "Snowflake warehouse")
 }
 
 func getSnowflakeRoleFromEnvVar() (string, error) {
-	return getFromEnvVar(kurtosisSnowflakeRoleEnvVarKey, "Snowflake role")
-}
-
-func getFromEnvVar(
-	key string,
-	subject string,
-) (string, error) {
-	value := os.Getenv(key)
-	if len(value) < 1 {
-		return "", stacktrace.NewError("No '%s' env var was found. Must be provided as env var %s", subject, key)
-	}
-	logrus.Debugf("Successfully loaded env var '%s'", subject)
-	return value, nil
+	return utils.GetFromEnvVar(kurtosisSnowflakeRoleEnvVarKey, "Snowflake role")
 }

@@ -48,10 +48,8 @@ func main() {
 	// Set up the metrics reporter which will query the metrics storage on a periodical basis
 	metricsReporter, err := metrics.CreateAndScheduleReporter(indexerCtx, indexerStore)
 	if err != nil {
-		//TODO not exiting for the first deploy
-		//TODO add exit failure after validating that all works for the first deployment
-		logrus.Errorf("an error occurred creating and schedulling the metrics reporter while bootstrapping the server "+
-			"Check if the required metrics storage env vars are set, this is the most probably failure. Error was:\n%s", err.Error())
+		exitFailure(stacktrace.Propagate(err, "an error occurred creating and scheduling the metrics reporter while bootstrapping the server "+
+			"Check if the required metrics storage env vars are set, this is the most probably failure"))
 	}
 
 	// Set up the crawler which will populate the store on a periodical basis

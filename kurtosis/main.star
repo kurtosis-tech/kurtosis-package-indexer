@@ -8,11 +8,20 @@ KURTOSIS_PACKAGE_INDEXER_PORT_NUM = 9770
 
 AWS_S3_BUCKET_SUBFOLDER = "kurtosis-package-indexer"
 
+# Kurtosis Snowflake Account Keys
+KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY = "kurtosis_snowflake_account_identifier"
+KURTOSIS_SNOWFLAKE_DB_KEY = "kurtosis_snowflake_db"
+KURTOSIS_SNOWFLAKE_PASSWORD_KEY = "kurtosis_snowflake_password"
+KURTOSIS_SNOWFLAKE_ROLE_KEY = "kurtosis_snowflake_role"
+KURTOSIS_SNOWFLAKE_USER_KEY = "kurtosis_snowflake_user"
+KURTOSIS_SNOWFLAKE_WAREHOUSE_KEY = "kurtosis_snowflake_warehouse"
+
 
 def run(
     plan,
     github_user_token="",
     kurtosis_package_indexer_version="0.0.7",
+    snowflake_env={},
     aws_env={},
 ):
     """Runs a Kurtosis package indexer service, listening on port 9770
@@ -20,6 +29,19 @@ def run(
     Args:
         github_user_token (string): The GitHub user token to use to authenticate to GitHub
         kurtosis_package_indexer_version (string): The version of the container image to use
+        snowflake_env (dict[string, string]): The Snowflake information required to connect to the Snowflake account
+            to get some package metrics from this storage.
+            The dictionary should contain the following fields:
+            ```
+            {
+                "kurtosis_snowflake_account_identifier": "<KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER>",
+                "kurtosis_snowflake_db": "<KURTOSIS_SNOWFLAKE_DB>",
+                "kurtosis_snowflake_password": "<KURTOSIS_SNOWFLAKE_PASSWORD>",
+                "kurtosis_snowflake_role": "<KURTOSIS_SNOWFLAKE_ROLE>",
+                "kurtosis_snowflake_user": "<KURTOSIS_SNOWFLAKE_USER>",
+                "kurtosis_snowflake_warehouse": "<KURTOSIS_SNOWFLAKE_WAREHOUSE>",
+            }
+            ```
         aws_env (dict[string, string]): The AWS information required to optionally pull the GitHub token
             from a file in an AWS bucket. This file should be located at 
             `<BUCKET_ROOT>/<OPTIONAL_FOLDER>/kurtosis-package-indexer/github-user-token.txt`. 
@@ -44,7 +66,8 @@ def run(
         }
         ```
     """
-    indexer_env_vars = {}
+
+    indexer_env_vars = get_snowflake_env(snowflake_env)
     if len(github_user_token) > 0:
         indexer_env_vars["GITHUB_USER_TOKEN"] = github_user_token
     else:
@@ -113,3 +136,22 @@ def get_aws_env(aws_env):
         bucket_name=aws_bucket_name,
         bucket_user_folder=aws_bucket_user_folder,
     )
+
+def get_snowflake_env(sf_env):
+    env_vars={}
+    # the Snowflake values should be provided as env variables to the package. Otherwise this package cannot run
+    sf_account_identifier = sf_env[KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY] if KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY in sf_env else fail("Expected to receive the SnowFlake config value for key '{0}' but it was not received, imposible to start the indexer.".format(KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY))
+    sf_db = sf_env[KURTOSIS_SNOWFLAKE_DB_KEY] if KURTOSIS_SNOWFLAKE_DB_KEY in sf_env else fail("Expected to receive the SnowFlake config value for key '{0}' but it was not received, imposible to start the indexer.".format(KURTOSIS_SNOWFLAKE_DB_KEY))
+    sf_password = sf_env[KURTOSIS_SNOWFLAKE_PASSWORD_KEY] if KURTOSIS_SNOWFLAKE_PASSWORD_KEY in sf_env else fail("Expected to receive the SnowFlake config value for key '{0}' but it was not received, imposible to start the indexer.".format(KURTOSIS_SNOWFLAKE_PASSWORD_KEY))
+    sf_role = sf_env[KURTOSIS_SNOWFLAKE_ROLE_KEY] if KURTOSIS_SNOWFLAKE_ROLE_KEY in sf_env else fail("Expected to receive the SnowFlake config value for key '{0}' but it was not received, imposible to start the indexer.".format(KURTOSIS_SNOWFLAKE_ROLE_KEY))
+    sf_user = sf_env[KURTOSIS_SNOWFLAKE_USER_KEY] if KURTOSIS_SNOWFLAKE_USER_KEY in sf_env else fail("Expected to receive the SnowFlake config value for key '{0}' but it was not received, imposible to start the indexer.".format(KURTOSIS_SNOWFLAKE_USER_KEY))
+    sf_warehouse = sf_env[KURTOSIS_SNOWFLAKE_WAREHOUSE_KEY] if KURTOSIS_SNOWFLAKE_WAREHOUSE_KEY in sf_env else fail("Expected to receive the SnowFlake config value for key '{0}' but it was not received, imposible to start the indexer.".format(KURTOSIS_SNOWFLAKE_WAREHOUSE_KEY))
+
+    env_vars["KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER"]=sf_account_identifier
+    env_vars["KURTOSIS_SNOWFLAKE_DB"]=sf_db
+    env_vars["KURTOSIS_SNOWFLAKE_PASSWORD"]=sf_password
+    env_vars["KURTOSIS_SNOWFLAKE_ROLE"]=sf_role
+    env_vars["KURTOSIS_SNOWFLAKE_USER"]=sf_user
+    env_vars["KURTOSIS_SNOWFLAKE_WAREHOUSE"]=sf_warehouse
+
+    return env_vars

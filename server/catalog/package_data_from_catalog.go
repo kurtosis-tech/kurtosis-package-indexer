@@ -15,6 +15,8 @@ const (
 	httpSchemaDomainSeparator = "://"
 	httpPathSeparator         = "/"
 	rootPathSeparator         = "/"
+
+	minElementsInPackageNme = 2
 )
 
 type packageDataFromCatalog struct {
@@ -63,9 +65,12 @@ func createPackageDataFromCatalogFromPackageName(packageName types.PackageName) 
 
 	splitPath := cleanPathAndSplit(parsedURL.Path)
 
+	if len(splitPath) < minElementsInPackageNme {
+		return nil, stacktrace.Propagate(err, "expected to find the repository name and owner in package name '%s' but at least one of them is missing, this is a bug in the Kurtosis indexer", packageName)
+	}
+
 	repositoryOwner := splitPath[0]
 	repositoryName := splitPath[1]
-
 	rootPathArray := splitPath[2:]
 
 	rootPath := rootPathSeparator

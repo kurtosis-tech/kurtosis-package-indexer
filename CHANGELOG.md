@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.20](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.19...0.0.20) (2023-12-18)
+
+
+### Features
+
+* reading packages catalog from yaml file ([#77](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/77)) ([d3ef0bd](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/d3ef0bd31cabe13fdbb3782a5b4c0548998780c8))
+
+## [0.0.19](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.18...0.0.19) (2023-12-15)
+
+
+### Features
+
+* remove bolt and etcd storage implementations ([#83](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/83)) ([b94c6cc](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/b94c6cc15be4c275897b729017ff9b15c6f9e8df))
+
 ## [0.0.18](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.17...0.0.18) (2023-12-14)
 
 

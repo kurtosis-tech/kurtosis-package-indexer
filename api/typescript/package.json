@@ -1,5 +1,5 @@
 {
-  "version": "0.0.18",
+  "version": "0.0.20",
   "name": "kurtosis-cloud-indexer-sdk",
   "main": "./build/index",
   "description": "This repo contains a Typescript client for communicating with the Cloud Indexer API server.",

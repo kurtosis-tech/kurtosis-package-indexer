@@ -74,7 +74,7 @@ jobs:
 
       - run: |
           set -euo pipefail
-          kurtosis run ./kurtosis/main.star --enclave ci-check "{\"kurtosis_package_indexer_version\": \"dev\", \"github_user_token\": \"${KURTOSISBOT_GITHUB_TOKEN}\"}"
+          kurtosis run ./kurtosis/main.star --enclave ci-check "{\"kurtosis_package_indexer_version\": \"dev\", \"github_user_token\": \"${KURTOSISBOT_GITHUB_TOKEN}\", \"snowflake_env\": {\"kurtosis_snowflake_account_identifier\": \"${KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER}\", \"kurtosis_snowflake_db\": \"${KURTOSIS_SNOWFLAKE_DB}\", \"kurtosis_snowflake_password\": \"${KURTOSIS_SNOWFLAKE_PASSWORD}\", \"kurtosis_snowflake_role\": \"${KURTOSIS_SNOWFLAKE_ROLE}\", \"kurtosis_snowflake_user\": \"${KURTOSIS_SNOWFLAKE_USER}\", \"kurtosis_snowflake_warehouse\": \"${KURTOSIS_SNOWFLAKE_WAREHOUSE}\"}}"
 
   publish_kurtosis_typescript_libs:
     docker:
@@ -152,6 +152,7 @@ workflows:
       - run_kurtosis_package:
           context:
             - github-user
+            - kurtosis-backend-snowflake-service-account
           requires:
             - build_api_golang
             - build_server

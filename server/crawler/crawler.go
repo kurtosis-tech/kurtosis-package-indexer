@@ -24,7 +24,7 @@ const (
 	secondaryCrawlFrequency = 30 * time.Minute
 	crawlIntervalBuffer     = 15 * time.Second
 
-	defaultSecondaryCrawlInitialDelay = 30 * time.Minute //TODO put 30 min
+	defaultSecondaryCrawlInitialDelay = 30 * time.Minute
 
 	defaultKurtosisYamlFilename = "kurtosis.yml"
 	starlarkMainDotStarFileName = "main.star"

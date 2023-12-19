@@ -24,6 +24,7 @@ type InMemoryStore struct {
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
 		lastMainCrawlTime:                time.Time{},
+		lastSecondaryCrawlTime:           time.Time{},
 		lastMetricsReporterQueryDatetime: time.Time{},
 		packages:                         sync.Map{},
 		packagesRunCount:                 types.PackagesRunCount{},

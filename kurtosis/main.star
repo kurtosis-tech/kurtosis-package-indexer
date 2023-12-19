@@ -8,14 +8,9 @@ KURTOSIS_PACKAGE_INDEXER_PORT_NUM = 9770
 
 AWS_S3_BUCKET_SUBFOLDER = "kurtosis-package-indexer"
 
-STORE_IN_MEMORY = "IN_MEMORY"
-STORE_BOLT = "BOLT"
-STORE_ETCD = "ETCD"
-
 
 def run(
     plan,
-    backing_store=STORE_IN_MEMORY,
     github_user_token="",
     kurtosis_package_indexer_version="0.0.7",
     aws_env={},
@@ -23,11 +18,9 @@ def run(
     """Runs a Kurtosis package indexer service, listening on port 9770
 
     Args:
-        backing_store (string): The backing store to use. If specified, it should be one of `IN_MEMORY`, `BOLT`
-            or `ETCD`- defaults to in-memory store
-        github_user_token (string): The Github user token to use to authenticate to Github
-        kurtosis_package_indexer_version (string): The version of the the container image to use
-        aws_env (dict[string, string]): The AWS information required to optionally pull the Github token 
+        github_user_token (string): The GitHub user token to use to authenticate to GitHub
+        kurtosis_package_indexer_version (string): The version of the container image to use
+        aws_env (dict[string, string]): The AWS information required to optionally pull the GitHub token
             from a file in an AWS bucket. This file should be located at 
             `<BUCKET_ROOT>/<OPTIONAL_FOLDER>/kurtosis-package-indexer/github-user-token.txt`. 
             The dictionary should contain the following fields:
@@ -51,7 +44,7 @@ def run(
         }
         ```
     """
-    indexer_env_vars = store_env_vars(plan, backing_store)
+    indexer_env_vars = {}
     if len(github_user_token) > 0:
         indexer_env_vars["GITHUB_USER_TOKEN"] = github_user_token
     else:
@@ -120,15 +113,3 @@ def get_aws_env(aws_env):
         bucket_name=aws_bucket_name,
         bucket_user_folder=aws_bucket_user_folder,
     )
-
-
-def store_env_vars(plan, backing_store_setting):
-    env_vars = {}
-    if backing_store_setting == STORE_ETCD:
-        etcd_database = etcd_module.run(plan)
-        env_vars["ETCD_DATABASE_URLS"] = "http://{}:{}".format(etcd_database["hostname"], etcd_database["port"])
-    elif backing_store_setting == STORE_BOLT:
-        env_vars["BOLT_DATABASE_FILE_PATH"] = "{}/bolt.db".format(KURTOSIS_PACKAGE_INDEXER_DATA_DIR)
-    elif backing_store_setting != STORE_IN_MEMORY:
-        plan.print("Backing store setting '{}' unknown. Defaulting to in-memory store".format(backing_store_setting))
-    return env_vars

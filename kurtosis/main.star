@@ -69,7 +69,7 @@ def run(
         ```
     """
 
-    indexer_env_vars = get_snowflake_env(snowflake_env)
+    indexer_env_vars = get_snowflake_env(snowflake_env, is_running_in_ci)
     if len(github_user_token) > 0:
         indexer_env_vars["GITHUB_USER_TOKEN"] = github_user_token
     else:

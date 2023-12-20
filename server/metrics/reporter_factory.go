@@ -3,8 +3,8 @@ package metrics
 import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
-	"github.com/kurtosis-tech/kurtosis-package-indexer/server/utils"
 	"github.com/kurtosis-tech/stacktrace"
+	"os"
 )
 
 const (
@@ -16,10 +16,7 @@ func CreateAndScheduleReporter(ctx context.Context, store store.KurtosisIndexerS
 
 	var newMetricsReporter Reporter
 
-	isRunningInCI, err := utils.GetFromEnvVar(ciEnvVarKey, "Running in CI")
-	if err != nil {
-		return nil, stacktrace.Propagate(err, "an error occurred getting env var key value with key '%s'", ciEnvVarKey)
-	}
+	isRunningInCI := os.Getenv(ciEnvVarKey)
 
 	if isRunningInCI == runningInCI {
 		// to avoid calling Snowflake from the CI builds

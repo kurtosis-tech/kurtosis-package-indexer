@@ -139,7 +139,7 @@ def get_aws_env(aws_env):
 
 def get_snowflake_env(sf_env):
     env_vars={}
-    # the Snowflake values should be provided as env variables to the package. Otherwise this package cannot run
+    # the Snowflake values should be provided as env variables to the package, or  the "CI" env var has to be true to use the `doNothingReporter`
     sf_account_identifier = sf_env[KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY] if KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY in sf_env else ""
     sf_db = sf_env[KURTOSIS_SNOWFLAKE_DB_KEY] if KURTOSIS_SNOWFLAKE_DB_KEY in sf_env else ""
     sf_password = sf_env[KURTOSIS_SNOWFLAKE_PASSWORD_KEY] if KURTOSIS_SNOWFLAKE_PASSWORD_KEY in sf_env else ""

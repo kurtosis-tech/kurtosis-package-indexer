@@ -72,9 +72,14 @@ jobs:
           source server/scripts/_constants.env
           docker build -t "${IMAGE_ORG_AND_REPO}:dev" -f server/Dockerfile server/
 
+      # Checking the CircleCi built-in CI env vars
+      - run: |
+          echo "CI env var value: ${CI}"
+          echo "CIRCLECI env var value: ${CIRCLECI}"
+
       - run: |
           set -euo pipefail
-          kurtosis run ./kurtosis/main.star --enclave ci-check "{\"kurtosis_package_indexer_version\": \"dev\", \"github_user_token\": \"${KURTOSISBOT_GITHUB_TOKEN}\"}"
+          kurtosis run ./kurtosis/main.star --enclave ci-check "{\"kurtosis_package_indexer_version\": \"dev\", \"github_user_token\": \"${KURTOSISBOT_GITHUB_TOKEN}\", \"is_running_in_ci\": \"${CI}\"}"
 
   publish_kurtosis_typescript_libs:
     docker:
@@ -152,6 +157,7 @@ workflows:
       - run_kurtosis_package:
           context:
             - github-user
+            - kurtosis-backend-snowflake-service-account
           requires:
             - build_api_golang
             - build_server

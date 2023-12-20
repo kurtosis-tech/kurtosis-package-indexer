@@ -16,6 +16,9 @@ type KurtosisIndexerStore interface {
 	// GetKurtosisPackages returns the entire list of Kurtosis packages currently stored by the indexer
 	GetKurtosisPackages(ctx context.Context) ([]*generated.KurtosisPackage, error)
 
+	// GetKurtosisPackage returns the Kurtosis package with locator currently stored by the indexer
+	GetKurtosisPackage(_ context.Context, kurtosisPackageLocator string) (*generated.KurtosisPackage, error)
+
 	// UpsertPackage either insert or update the Kurtosis package information stored with the locator
 	// `kurtosisPackageLocator`
 	UpsertPackage(ctx context.Context, kurtosisPackageLocator string, kurtosisPackage *generated.KurtosisPackage) error
@@ -24,16 +27,24 @@ type KurtosisIndexerStore interface {
 	// It no-ops if no packages is stored for this locator
 	DeletePackage(ctx context.Context, kurtosisPackageLocator string) error
 
-	// UpdateLastCrawlDatetime updates the date time at which the last crawling happened.
+	// UpdateLastMainCrawlDatetime updates the date time at which the last main crawling happened.
 	// It is helpful to store this information so that the indexer doesn't systematically crawl everytime it is
 	// restarted. Note though that to fully benefit from this, the indexer needs to be run with a persistent store (
 	// either bolt with a persistent volume, or etcd)
-	UpdateLastCrawlDatetime(ctx context.Context, lastCrawlTime time.Time) error
+	UpdateLastMainCrawlDatetime(ctx context.Context, lastCrawlTime time.Time) error
 
-	// GetLastCrawlDatetime returns the datetime at which the last crawling happened. If no datetime is currently
+	// GetLastMainCrawlDatetime returns the datetime at which the last crawling happened. If no datetime is currently
 	// stored (b/c no crawling has ever happened, or the store is not persistent), it returns time.Time{}
 	// (i.e. the zero value for time)
-	GetLastCrawlDatetime(ctx context.Context) (time.Time, error)
+	GetLastMainCrawlDatetime(ctx context.Context) (time.Time, error)
+
+	// UpdateLastSecondaryCrawlDatetime updates the date time at which the last secondary crawling happened.
+	UpdateLastSecondaryCrawlDatetime(ctx context.Context, lastCrawlTime time.Time) error
+
+	// GetLastSecondaryCrawlDatetime returns the datetime at which the last crawling happened. If no datetime is currently
+	// stored (b/c no crawling has ever happened, or the store is not persistent), it returns time.Time{}
+	// (i.e. the zero value for time)
+	GetLastSecondaryCrawlDatetime(ctx context.Context) (time.Time, error)
 
 	// UpdateLastMetricsQueryDatetime updates the date time at which the last metrics query happened.
 	// It is helpful to store this information so that the metrics reporter doesn't systematically query everytime it is

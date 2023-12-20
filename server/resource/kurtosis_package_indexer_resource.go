@@ -17,10 +17,10 @@ type KurtosisPackageIndexer struct {
 
 	crawler *crawler.GithubCrawler
 
-	metricsReporter *metrics.Reporter
+	metricsReporter metrics.Reporter
 }
 
-func NewKurtosisPackageIndexer(store store.KurtosisIndexerStore, crawler *crawler.GithubCrawler, metricsReporter *metrics.Reporter) *KurtosisPackageIndexer {
+func NewKurtosisPackageIndexer(store store.KurtosisIndexerStore, crawler *crawler.GithubCrawler, metricsReporter metrics.Reporter) *KurtosisPackageIndexer {
 	return &KurtosisPackageIndexer{
 		store:           store,
 		crawler:         crawler,

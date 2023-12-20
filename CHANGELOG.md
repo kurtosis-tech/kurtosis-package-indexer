@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.21](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.20...0.0.21) (2023-12-20)
+
+
+### Features
+
+* running a secondary GitHub crawler for updating the repository stars and the last commit time with a longer frequency ([#87](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/87)) ([caab53d](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/caab53d372e82267242b5bf93e5faa53b5b8ce63))
+
 ## [0.0.20](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.19...0.0.20) (2023-12-18)
 
 

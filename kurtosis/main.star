@@ -23,6 +23,7 @@ def run(
     kurtosis_package_indexer_version="0.0.7",
     snowflake_env={},
     aws_env={},
+    is_running_in_ci="false",
 ):
     """Runs a Kurtosis package indexer service, listening on port 9770
 
@@ -55,6 +56,7 @@ def run(
                 "aws_bucket_user_folder": "<OPTIONAL_FOLDER_IN_AWS_BUCKET>",
             }
             ```
+        is_running_in_ci (string): The string boolean that indicates if the package is running in CI
     Returns:
         The service object containing useful information on the running Kurtosis Package Indexer. Typically:
         ```
@@ -137,9 +139,16 @@ def get_aws_env(aws_env):
         bucket_user_folder=aws_bucket_user_folder,
     )
 
-def get_snowflake_env(sf_env):
+def get_snowflake_env(sf_env, is_running_in_ci):
     env_vars={}
-    # the Snowflake values should be provided as env variables to the package, or  the "CI" env var has to be true to use the `doNothingReporter`
+
+    # Snowflake won't be configured if it's running in CI to avoid using the service
+    # the `doNothingMetricsReporter` will be used instead
+    if (is_running_in_ci == "true"):
+        env_vars["CI"]= "true"
+        return env_vars
+
+    # the Snowflake values should be provided as env variables to the package
     sf_account_identifier = sf_env[KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY] if KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY in sf_env else ""
     sf_db = sf_env[KURTOSIS_SNOWFLAKE_DB_KEY] if KURTOSIS_SNOWFLAKE_DB_KEY in sf_env else ""
     sf_password = sf_env[KURTOSIS_SNOWFLAKE_PASSWORD_KEY] if KURTOSIS_SNOWFLAKE_PASSWORD_KEY in sf_env else ""

@@ -79,7 +79,7 @@ jobs:
 
       - run: |
           set -euo pipefail
-          kurtosis run ./kurtosis/main.star --enclave ci-check "{\"kurtosis_package_indexer_version\": \"dev\", \"github_user_token\": \"${KURTOSISBOT_GITHUB_TOKEN}\"}"
+          kurtosis run ./kurtosis/main.star --enclave ci-check "{\"kurtosis_package_indexer_version\": \"dev\", \"github_user_token\": \"${KURTOSISBOT_GITHUB_TOKEN}\", \"is_running_in_ci\": \"${CI}\"}"
 
   publish_kurtosis_typescript_libs:
     docker:

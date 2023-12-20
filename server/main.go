@@ -67,7 +67,7 @@ func main() {
 	logrus.Exit(successExitCode)
 }
 
-func runServer(indexerStore store.KurtosisIndexerStore, indexerCrawler *crawler.GithubCrawler, metricsReporter *metrics.Reporter) error {
+func runServer(indexerStore store.KurtosisIndexerStore, indexerCrawler *crawler.GithubCrawler, metricsReporter metrics.Reporter) error {
 	kurtosisPackageIndexerResource := resource.NewKurtosisPackageIndexer(indexerStore, indexerCrawler, metricsReporter)
 	connectGoHandler := resource.NewKurtosisPackageIndexerHandlerImpl(kurtosisPackageIndexerResource)
 

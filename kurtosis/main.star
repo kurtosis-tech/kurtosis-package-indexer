@@ -140,12 +140,12 @@ def get_aws_env(aws_env):
 def get_snowflake_env(sf_env):
     env_vars={}
     # the Snowflake values should be provided as env variables to the package. Otherwise this package cannot run
-    sf_account_identifier = sf_env[KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY] if KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY in sf_env else fail("Expected to receive the SnowFlake config value for key '{0}' but it was not received, imposible to start the indexer.".format(KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY))
-    sf_db = sf_env[KURTOSIS_SNOWFLAKE_DB_KEY] if KURTOSIS_SNOWFLAKE_DB_KEY in sf_env else fail("Expected to receive the SnowFlake config value for key '{0}' but it was not received, imposible to start the indexer.".format(KURTOSIS_SNOWFLAKE_DB_KEY))
-    sf_password = sf_env[KURTOSIS_SNOWFLAKE_PASSWORD_KEY] if KURTOSIS_SNOWFLAKE_PASSWORD_KEY in sf_env else fail("Expected to receive the SnowFlake config value for key '{0}' but it was not received, imposible to start the indexer.".format(KURTOSIS_SNOWFLAKE_PASSWORD_KEY))
-    sf_role = sf_env[KURTOSIS_SNOWFLAKE_ROLE_KEY] if KURTOSIS_SNOWFLAKE_ROLE_KEY in sf_env else fail("Expected to receive the SnowFlake config value for key '{0}' but it was not received, imposible to start the indexer.".format(KURTOSIS_SNOWFLAKE_ROLE_KEY))
-    sf_user = sf_env[KURTOSIS_SNOWFLAKE_USER_KEY] if KURTOSIS_SNOWFLAKE_USER_KEY in sf_env else fail("Expected to receive the SnowFlake config value for key '{0}' but it was not received, imposible to start the indexer.".format(KURTOSIS_SNOWFLAKE_USER_KEY))
-    sf_warehouse = sf_env[KURTOSIS_SNOWFLAKE_WAREHOUSE_KEY] if KURTOSIS_SNOWFLAKE_WAREHOUSE_KEY in sf_env else fail("Expected to receive the SnowFlake config value for key '{0}' but it was not received, imposible to start the indexer.".format(KURTOSIS_SNOWFLAKE_WAREHOUSE_KEY))
+    sf_account_identifier = sf_env[KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY] if KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY in sf_env else ""
+    sf_db = sf_env[KURTOSIS_SNOWFLAKE_DB_KEY] if KURTOSIS_SNOWFLAKE_DB_KEY in sf_env else ""
+    sf_password = sf_env[KURTOSIS_SNOWFLAKE_PASSWORD_KEY] if KURTOSIS_SNOWFLAKE_PASSWORD_KEY in sf_env else ""
+    sf_role = sf_env[KURTOSIS_SNOWFLAKE_ROLE_KEY] if KURTOSIS_SNOWFLAKE_ROLE_KEY in sf_env else ""
+    sf_user = sf_env[KURTOSIS_SNOWFLAKE_USER_KEY] if KURTOSIS_SNOWFLAKE_USER_KEY in sf_env else ""
+    sf_warehouse = sf_env[KURTOSIS_SNOWFLAKE_WAREHOUSE_KEY] if KURTOSIS_SNOWFLAKE_WAREHOUSE_KEY in sf_env else ""
 
     env_vars["KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER"]=sf_account_identifier
     env_vars["KURTOSIS_SNOWFLAKE_DB"]=sf_db

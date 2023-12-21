@@ -8,16 +8,16 @@ import (
 )
 
 func CreateGithubClient(ctx context.Context) (*github_lib.Client, error) {
-	authenticatedHttpClient, err := authenticatedHttpClientFromEnvVar(ctx)
+	authenticatedHttpClientObj, err := authenticatedHttpClientFromEnvVar(ctx)
 	if err != nil {
 		logrus.Warnf("Unable to build authenticated Github client from environment variable. It will now try "+
 			"from AWS S3 bucket. Error was:\n%v", err.Error())
-		authenticatedHttpClient, err = authenticatedHttpClientFromS3BucketContent(ctx)
+		authenticatedHttpClientObj, err = authenticatedHttpClientFromS3BucketContent(ctx)
 		if err != nil {
 			logrus.Warnf("Unable to build authenticated Github client from S3 bucket. Error was:\n%v", err.Error())
 			return nil, stacktrace.NewError("Unable to build authenticated Github client.")
 		}
 	}
-	githubClient := github_lib.NewClient(authenticatedHttpClient.Client)
+	githubClient := github_lib.NewClient(authenticatedHttpClientObj.Client)
 	return githubClient, nil
 }

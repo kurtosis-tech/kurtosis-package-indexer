@@ -7,6 +7,7 @@ import (
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/api_constructors"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/catalog"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/consts"
 	github_indexer_lib "github.com/kurtosis-tech/kurtosis-package-indexer/server/github"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/ticker"
@@ -27,9 +28,6 @@ const (
 
 	defaultSecondaryCrawlInitialDelay = 30 * time.Minute
 
-	defaultKurtosisYamlFilename = "kurtosis.yml"
-	starlarkMainDotStarFileName = "main.star"
-
 	githubUrl = "github.com"
 
 	successfulParsingText = "Parsed package content successfully"
@@ -39,8 +37,6 @@ const (
 	noDefaultBranchSet = ""
 
 	onlyOneCommit = 1
-
-	kurtosisPackageIconImgName = "kurtosis-package-icon.png"
 )
 
 var (
@@ -173,7 +169,7 @@ func (crawler *GithubCrawler) ReadPackage(
 	}
 	if !packageFound {
 		logrus.Warn("No Kurtosis package found.") // don't want to log provided package repository locator bc it's a security risk (e.g. malicious data)
-		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageMetadata.GetLocator(), defaultKurtosisYamlFilename, starlarkMainDotStarFileName)
+		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageMetadata.GetLocator(), consts.DefaultKurtosisYamlFilename, consts.StarlarkMainDotStarFileName)
 	}
 
 	kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)
@@ -192,7 +188,7 @@ func (crawler *GithubCrawler) getPackageMetadataFromStorageOrDefault(ctx context
 		repositoryOwner,
 		repositoryName,
 		repositoryPackageRootPath,
-		defaultKurtosisYamlFilename,
+		consts.DefaultKurtosisYamlFilename,
 		repositoryStars,          // it will be filled below when we get this from the storage to avoid shooting an extra GitHub request
 		repositoryLastCommitTime, // it will be filled below when we get this from the storage to avoid shooting an extra GitHub request
 		repositoryDefaultBranch,  // it will be filled below when we get this from the storage to avoid shooting an extra GitHub request
@@ -215,7 +211,7 @@ func (crawler *GithubCrawler) getPackageMetadataFromStorageOrDefault(ctx context
 		repositoryOwner,
 		repositoryName,
 		repositoryPackageRootPath,
-		defaultKurtosisYamlFilename,
+		consts.DefaultKurtosisYamlFilename,
 		repositoryStars,
 		repositoryLastCommitTime,
 		repositoryDefaultBranch,
@@ -370,7 +366,7 @@ func (crawler *GithubCrawler) updateAllPackagesStarsDefaultBranchAndLastCommitDa
 			repositoryOwner,
 			repositoryName,
 			repositoryPackageRootPath,
-			defaultKurtosisYamlFilename,
+			consts.DefaultKurtosisYamlFilename,
 			stars,
 			*lastCommitTime,
 			defaultBranch,
@@ -435,7 +431,7 @@ func (crawler *GithubCrawler) updateOrDeleteStoredPackages(ctx context.Context, 
 			storedApiRepositoryMetadata.GetOwner(),
 			storedApiRepositoryMetadata.GetName(),
 			storedApiRepositoryMetadata.GetRootPath(),
-			defaultKurtosisYamlFilename,
+			consts.DefaultKurtosisYamlFilename,
 			storedPackage.GetStars(),                                 // this will be updated by the secondary crawler
 			storedApiRepositoryMetadata.GetLastCommitTime().AsTime(), // this will be updated by the secondary crawler
 			storedApiRepositoryMetadata.GetDefaultBranch(),           // this will be updated by the secondary crawler
@@ -599,7 +595,7 @@ func readCatalogAndGetPackagesRepositoryMetadata(ctx context.Context, client *gi
 			return nil, stacktrace.Propagate(getErr, "an error occurred getting the repository stars, default branch and last commit date for owner '%s' and name '%s'", repositoryOwner, repositoryName)
 		}
 
-		newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repositoryOwner, repositoryName, repositoryPackageRootPath, defaultKurtosisYamlFilename, stars, *lastCommitTime, defaultBranch)
+		newPackageRepositoryMetadata := NewPackageRepositoryMetadata(repositoryOwner, repositoryName, repositoryPackageRootPath, consts.DefaultKurtosisYamlFilename, stars, *lastCommitTime, defaultBranch)
 
 		allPackageRepositoryMetadatas[packageIndex] = newPackageRepositoryMetadata
 	}
@@ -643,7 +639,7 @@ func extractKurtosisPackageContent(
 	if err != nil {
 		logrus.Warnf("An error occurred parsing '%s' file in repository '%s'"+
 			"Error was:\n%v", kurtosisYamlFilePath, repositoryFullName, err.Error())
-		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", defaultKurtosisYamlFilename)
+		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", consts.DefaultKurtosisYamlFilename)
 	}
 
 	// we check that the name set in kurtosis.yml matches the location on GitHub. If not, we exclude it from the
@@ -661,7 +657,7 @@ func extractKurtosisPackageContent(
 		nameError := stacktrace.NewError(
 			"The package '%s' is invalid because the name set in its '%s' doesn't match its Github URL (name set: '%s' - expected: '%s').",
 			repositoryFullName,
-			defaultKurtosisYamlFilename,
+			consts.DefaultKurtosisYamlFilename,
 			kurtosisPackageName,
 			expectedPackageName,
 		)
@@ -670,7 +666,7 @@ func extractKurtosisPackageContent(
 	}
 
 	// get contents of main.star file from GitHub
-	kurtosisMainDotStarFilePath := fmt.Sprintf("%s%s", packageRootPath, starlarkMainDotStarFileName)
+	kurtosisMainDotStarFilePath := fmt.Sprintf("%s%s", packageRootPath, consts.StarlarkMainDotStarFileName)
 	starlarkMainDotStartContentResult, _, resp, err := client.Repositories.GetContents(ctx, repositoryOwner, repositoryName, kurtosisMainDotStarFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == http.StatusNotFound {
 		logrus.Debugf("No '%s' file in repo '%s'", kurtosisMainDotStarFilePath, repositoryFullName)
@@ -682,7 +678,7 @@ func extractKurtosisPackageContent(
 	if err != nil {
 		logrus.Warnf("An error occurred parsing '%s' file in repository '%s'. This Kurtosis package will not be indexed. "+
 			"Error was:\n%v", kurtosisMainDotStarFilePath, repositoryFullName, err.Error())
-		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", starlarkMainDotStarFileName)
+		return nil, false, stacktrace.Propagate(err, "An error occurred parsing the '%v' file.", consts.StarlarkMainDotStarFileName)
 	}
 
 	// check if the Kurtosis package icon exist in the package's root and get the URL
@@ -795,7 +791,7 @@ func getPackageIconURLIfExists(packageRepositoryMetadata *PackageRepositoryMetad
 	if err != nil {
 		return "", stacktrace.Propagate(err, "an error occurred getting the package repository download root URL")
 	}
-	packageIconURL, err := url.JoinPath(repositoryDownloadRootURL, kurtosisPackageIconImgName)
+	packageIconURL, err := url.JoinPath(repositoryDownloadRootURL, consts.KurtosisPackageIconImgName)
 	if err != nil {
 		return "", stacktrace.Propagate(err, "an error occurred generating the package icon URL for repository '%s'", packageRepositoryMetadata.Name)
 	}

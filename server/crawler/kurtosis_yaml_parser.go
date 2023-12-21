@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"github.com/google/go-github/v54/github"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/consts"
 	"github.com/kurtosis-tech/stacktrace"
 	"gopkg.in/yaml.v3"
 )
@@ -9,12 +10,12 @@ import (
 func ParseKurtosisYaml(kurtosisYamlContent *github.RepositoryContent) (string, string, string, error) {
 	rawFileContent, err := kurtosisYamlContent.GetContent()
 	if err != nil {
-		return "", "", "", stacktrace.Propagate(err, "An error occurred getting the content of the '%s' file", defaultKurtosisYamlFilename)
+		return "", "", "", stacktrace.Propagate(err, "An error occurred getting the content of the '%s' file", types.DefaultKurtosisYamlFilename)
 	}
 
 	fileContent := new(KurtosisYaml)
 	if err = yaml.Unmarshal([]byte(rawFileContent), fileContent); err != nil {
-		return "", "", "", stacktrace.Propagate(err, "An error occurred parsing YAML for '%s'", defaultKurtosisYamlFilename)
+		return "", "", "", stacktrace.Propagate(err, "An error occurred parsing YAML for '%s'", types.DefaultKurtosisYamlFilename)
 	}
 
 	if fileContent.Name == "" {

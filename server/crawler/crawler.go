@@ -7,6 +7,7 @@ import (
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/api_constructors"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/catalog"
+	github_indexer_lib "github.com/kurtosis-tech/kurtosis-package-indexer/server/github"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/ticker"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
@@ -391,19 +392,12 @@ func (crawler *GithubCrawler) updateAllPackagesStarsDefaultBranchAndLastCommitDa
 // TODO review this because it could be optimized, right now the ReadPackages method is calling it
 // TODO and creating a new client on each request
 func createGithubClient(ctx context.Context) (*github.Client, error) {
-	authenticatedHttpClient, err := AuthenticatedHttpClientFromEnvVar(ctx)
+	githubClient, err := github_indexer_lib.CreateGithubClient(ctx)
 	if err != nil {
-		logrus.Warnf("Unable to build authenticated Github client from environment variable. It will now try "+
-			"from AWS S3 bucket. Error was:\n%v", err.Error())
-		authenticatedHttpClient, err = AuthenticatedHttpClientFromS3BucketContent(ctx)
-		if err != nil {
-			logrus.Warnf("Unable to build authenticated Github client from S3 bucket. Error was:\n%v", err.Error())
-			return nil, stacktrace.NewError("Unable to build authenticated Github client. This is required so that "+
-				"the indexer can search Github to retrieve Kurtosis package content. Skipping indexing for now, will "+
-				"retry in %v", mainCrawlFrequency)
-		}
+		return nil, stacktrace.Propagate(err, "Unable to build authenticated Github client. This is required so that "+
+			"the indexer can search Github to retrieve Kurtosis package content. Skipping indexing for now, will "+
+			"retry in %v", mainCrawlFrequency)
 	}
-	githubClient := github.NewClient(authenticatedHttpClient.Client)
 	return githubClient, nil
 }
 

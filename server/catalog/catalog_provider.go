@@ -32,6 +32,9 @@ func GetPackagesCatalog() (PackageCatalog, error) {
 	}
 
 	newPackagesCatalog, err := GetPackageCatalogFromYamlFileContent(fileContent)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred getting the package catalog")
+	}
 
 	return newPackagesCatalog, nil
 }

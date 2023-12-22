@@ -20,7 +20,7 @@ const (
 )
 
 type packageDataFromCatalog struct {
-	// repositoryOwner is the Kurtosis package name
+	// packageName is the Kurtosis package name
 	packageName types.PackageName
 
 	// repositoryOwner is the repositoryOwner of the GitHub repository. It can be a GitHub organization or an individual user

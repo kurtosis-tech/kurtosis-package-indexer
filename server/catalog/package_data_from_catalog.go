@@ -20,6 +20,9 @@ const (
 )
 
 type packageDataFromCatalog struct {
+	// packageName is the Kurtosis package name
+	packageName types.PackageName
+
 	// repositoryOwner is the repositoryOwner of the GitHub repository. It can be a GitHub organization or an individual user
 	repositoryOwner string
 
@@ -28,6 +31,10 @@ type packageDataFromCatalog struct {
 
 	// repositoryPackageRootPath is the path relative to the GitHub repository root where the kurtosis.yml file can be found
 	repositoryPackageRootPath string
+}
+
+func (mainMetadata *packageDataFromCatalog) GetPackageName() types.PackageName {
+	return mainMetadata.packageName
 }
 
 func (mainMetadata *packageDataFromCatalog) GetRepositoryOwner() string {
@@ -79,6 +86,7 @@ func createPackageDataFromCatalogFromPackageName(packageName types.PackageName) 
 	}
 
 	newPackageRepositoryMainMetadata := &packageDataFromCatalog{
+		packageName:               packageName,
 		repositoryOwner:           repositoryOwner,
 		repositoryName:            repositoryName,
 		repositoryPackageRootPath: rootPath,

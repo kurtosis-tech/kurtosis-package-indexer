@@ -30,16 +30,29 @@ func GetPackagesCatalog() (PackageCatalog, error) {
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred getting the packages catalog file content")
 	}
+
+	newPackagesCatalog, err := GetPackageCatalogFromYamlFileContent(fileContent)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred getting the package catalog")
+	}
+
+	return newPackagesCatalog, nil
+}
+
+// GetPackageCatalogFromYamlFileContent receives the kurtosis-package-catalog.yml file content and returns a PackageCatalog object
+// it's public because it's also used by the kurtosis-package-catalog project
+func GetPackageCatalogFromYamlFileContent(fileContent []byte) (PackageCatalog, error) {
 	newPackagesCatalogFileContent := &packagesCatalogFileContent{
 		Packages: []map[string]string{},
 	}
-	if err = yaml.Unmarshal(fileContent, newPackagesCatalogFileContent); err != nil {
+	if err := yaml.Unmarshal(fileContent, newPackagesCatalogFileContent); err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred unmarshalling the package catalog file content")
 	}
 	newPackagesCatalog, err := newPackageCatalogFromPackageCatalogFileContent(newPackagesCatalogFileContent)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred creating a new package catalog object from this catalog file content '%+v'", newPackagesCatalogFileContent)
 	}
+
 	return newPackagesCatalog, nil
 }
 

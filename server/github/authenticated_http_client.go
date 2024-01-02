@@ -1,4 +1,4 @@
-package crawler
+package github
 
 import (
 	"context"
@@ -27,11 +27,11 @@ const (
 	awsS3UserTokenFileName = "github-user-token.txt"
 )
 
-type AuthenticatedHttpClient struct {
+type authenticatedHttpClient struct {
 	*http.Client
 }
 
-func AuthenticatedHttpClientFromEnvVar(ctx context.Context) (*AuthenticatedHttpClient, error) {
+func authenticatedHttpClientFromEnvVar(ctx context.Context) (*authenticatedHttpClient, error) {
 	githubUserToken := os.Getenv(githubUserTokenEnvVarName)
 	if err := mustNotBeEmpty(githubUserToken); err != nil {
 		return nil, stacktrace.Propagate(err, "Environment variable '%s' was empty", githubUserTokenEnvVarName)
@@ -39,7 +39,7 @@ func AuthenticatedHttpClientFromEnvVar(ctx context.Context) (*AuthenticatedHttpC
 	return createAuthenticatedHttpClient(ctx, githubUserToken), nil
 }
 
-func AuthenticatedHttpClientFromS3BucketContent(ctx context.Context) (*AuthenticatedHttpClient, error) {
+func authenticatedHttpClientFromS3BucketContent(ctx context.Context) (*authenticatedHttpClient, error) {
 	awsAccessKeyId := os.Getenv(awsAccessKeyIdEnvVarName)
 	awsSecretAccessKey := os.Getenv(awsSecretAccessKeyEnvVarName)
 	awsBucketRegion := os.Getenv(awsBucketRegionEnvVarName)
@@ -90,14 +90,14 @@ func AuthenticatedHttpClientFromS3BucketContent(ctx context.Context) (*Authentic
 	return createAuthenticatedHttpClient(ctx, githubUserToken), nil
 }
 
-func createAuthenticatedHttpClient(ctx context.Context, githubUserToken string) *AuthenticatedHttpClient {
+func createAuthenticatedHttpClient(ctx context.Context, githubUserToken string) *authenticatedHttpClient {
 	tokenSource := oauth2.StaticTokenSource(
 		// nolint: exhaustruct
 		&oauth2.Token{
 			AccessToken: githubUserToken,
 		},
 	)
-	return &AuthenticatedHttpClient{
+	return &authenticatedHttpClient{
 		oauth2.NewClient(ctx, tokenSource),
 	}
 }

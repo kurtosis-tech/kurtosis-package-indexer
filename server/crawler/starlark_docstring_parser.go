@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"github.com/kurtosis-tech/stacktrace"
 	"github.com/kurtosis-tech/starlark-lsp/pkg/docstring"
 	"regexp"
 	"strings"
@@ -25,6 +26,10 @@ func ParseRunFunctionDocstring(rawDocstring string) (*KurtosisMainDotStar, error
 	// Arguments
 	for _, arg := range parsedDocstring.Args() {
 		argName, argType := parseNameAndType(arg.Name)
+
+		if argType == nil {
+			return nil, stacktrace.NewError("argument '%s' does not have a valid type", argName)
+		}
 
 		if argName != "" {
 			arguments = append(arguments, &StarlarkFunctionArgument{

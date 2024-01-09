@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.22](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.21...0.0.22) (2024-01-09)
+
+
+### Bug Fixes
+
+* fails with dict argument, in the doc string, has not been parameterized ([#94](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/94)) ([87666e4](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/87666e4c03b8fe00c72cfdf90d7805ec78851052))
+
 ## [0.0.21](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.20...0.0.21) (2023-12-20)
 
 

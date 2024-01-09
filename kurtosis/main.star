@@ -90,7 +90,7 @@ def run(
             },
             files={
                 KURTOSIS_PACKAGE_INDEXER_DATA_DIR: Directory(
-                    persistent_key="kurtosis_indexer_data_dir"
+                    persistent_key="kurtosis-indexer-data-dir"
                 ),
             },
             env_vars=indexer_env_vars,

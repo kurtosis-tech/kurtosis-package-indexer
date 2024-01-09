@@ -3,23 +3,21 @@ package store
 import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
-	"github.com/kurtosis-tech/stacktrace"
-	"github.com/sirupsen/logrus"
-	"os"
-	"strings"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
 	"time"
 )
 
-const (
-	boltDatabaseFilePathEnvVarName = "BOLT_DATABASE_FILE_PATH"
-	etcdDatabaseUrlsEnvVarName     = "ETCD_DATABASE_URLS"
-)
-
+// KurtosisIndexerStore is the contract for the indexer store
+// I left a comment to remember that there were implementations for etcd and boltdb but, both were removed
+// because they were not being used in production, simply to remember that both can be added again by checking the commit history
 type KurtosisIndexerStore interface {
 	Close() error
 
 	// GetKurtosisPackages returns the entire list of Kurtosis packages currently stored by the indexer
 	GetKurtosisPackages(ctx context.Context) ([]*generated.KurtosisPackage, error)
+
+	// GetKurtosisPackage returns the Kurtosis package with locator currently stored by the indexer
+	GetKurtosisPackage(_ context.Context, kurtosisPackageLocator string) (*generated.KurtosisPackage, error)
 
 	// UpsertPackage either insert or update the Kurtosis package information stored with the locator
 	// `kurtosisPackageLocator`
@@ -29,45 +27,40 @@ type KurtosisIndexerStore interface {
 	// It no-ops if no packages is stored for this locator
 	DeletePackage(ctx context.Context, kurtosisPackageLocator string) error
 
-	// UpdateLastCrawlDatetime updates the date time at which the last crawling happened.
+	// UpdateLastMainCrawlDatetime updates the date time at which the last main crawling happened.
 	// It is helpful to store this information so that the indexer doesn't systematically crawl everytime it is
 	// restarted. Note though that to fully benefit from this, the indexer needs to be run with a persistent store (
 	// either bolt with a persistent volume, or etcd)
-	UpdateLastCrawlDatetime(ctx context.Context, lastCrawlTime time.Time) error
+	UpdateLastMainCrawlDatetime(ctx context.Context, lastCrawlTime time.Time) error
 
-	// GetLastCrawlDatetime returns the datetime at which the last crawling happened. If no datetime is currently
+	// GetLastMainCrawlDatetime returns the datetime at which the last crawling happened. If no datetime is currently
 	// stored (b/c no crawling has ever happened, or the store is not persistent), it returns time.Time{}
 	// (i.e. the zero value for time)
-	GetLastCrawlDatetime(ctx context.Context) (time.Time, error)
-}
+	GetLastMainCrawlDatetime(ctx context.Context) (time.Time, error)
 
-func InstantiateStoreFromEnvVar() (KurtosisIndexerStore, error) {
-	etcdDatabaseUrls := os.Getenv(etcdDatabaseUrlsEnvVarName)
-	if etcdDatabaseUrls != "" {
-		logrus.Infof("Environment variable '%s' recognized ('%s'). Instanciating etcd database client",
-			etcdDatabaseUrlsEnvVarName, etcdDatabaseUrls)
-		var etcdUrls []string
-		for _, url := range strings.Split(etcdDatabaseUrls, ",") {
-			etcdUrls = append(etcdUrls, strings.TrimSpace(url))
-		}
-		etcdStore, err := createEtcdBackedStore(etcdUrls)
-		if err != nil {
-			return nil, stacktrace.Propagate(err, "Error creating store backed by etcd")
-		}
-		return etcdStore, nil
-	}
+	// UpdateLastSecondaryCrawlDatetime updates the date time at which the last secondary crawling happened.
+	UpdateLastSecondaryCrawlDatetime(ctx context.Context, lastCrawlTime time.Time) error
 
-	boltDatabaseFilePath := os.Getenv(boltDatabaseFilePathEnvVarName)
-	if boltDatabaseFilePath != "" {
-		logrus.Infof("Environment variable '%s' recognized ('%s'). Instanciating Bbolt database",
-			boltDatabaseFilePathEnvVarName, boltDatabaseFilePath)
-		boltStore, err := createBboltStore(boltDatabaseFilePath)
-		if err != nil {
-			return nil, stacktrace.Propagate(err, "Error creating Bbolt store")
-		}
-		return boltStore, nil
-	}
-	// env var not set, default to in-memory store
-	logrus.Infof("No environment variable set for the store, defaulting to in-memory store")
-	return newInMemoryStore(), nil
+	// GetLastSecondaryCrawlDatetime returns the datetime at which the last crawling happened. If no datetime is currently
+	// stored (b/c no crawling has ever happened, or the store is not persistent), it returns time.Time{}
+	// (i.e. the zero value for time)
+	GetLastSecondaryCrawlDatetime(ctx context.Context) (time.Time, error)
+
+	// UpdateLastMetricsQueryDatetime updates the date time at which the last metrics query happened.
+	// It is helpful to store this information so that the metrics reporter doesn't systematically query everytime it is
+	// restarted. Note though that to fully benefit from this, the indexer needs to be run with a persistent store (
+	// either bolt with a persistent volume, or etcd)
+	UpdateLastMetricsQueryDatetime(ctx context.Context, lastMetricsQueryTime time.Time) error
+
+	// GetLastMetricsQueryDatetime returns the datetime at which the last metrics query request happened. If no datetime is currently
+	// stored (b/c no query has ever happened, or the store is not persistent), it returns time.Time{}
+	// (i.e. the zero value for time)
+	GetLastMetricsQueryDatetime(ctx context.Context) (time.Time, error)
+
+	// GetPackagesRunCount returns the latest metrics package run count stored value
+	// this value is generated and stored by the metrics reporter
+	GetPackagesRunCount(ctx context.Context) (types.PackagesRunCount, error)
+
+	// UpdatePackagesRunCount updates the packages run count value to the latest obtained from the metrics reporter
+	UpdatePackagesRunCount(ctx context.Context, newPackagesRunCount types.PackagesRunCount) error
 }

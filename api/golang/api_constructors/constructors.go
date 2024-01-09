@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"time"
 )
 
 func NewGetPackagesResponse(packages ...*generated.KurtosisPackage) *generated.GetPackagesResponse {
@@ -20,6 +21,8 @@ func NewKurtosisPackage(
 	parsingResult string,
 	parsingTime *timestamppb.Timestamp,
 	version string,
+	iconURL string,
+	runCount uint32,
 	args ...*generated.PackageArg,
 ) *generated.KurtosisPackage {
 	// construct the URL from the repository object for now. Remove it if it's not needed by the FE
@@ -37,15 +40,18 @@ func NewKurtosisPackage(
 		ParsingResult:         parsingResult,
 		ParsingTime:           parsingTime,
 		Version:               version,
+		IconUrl:               iconURL,
+		RunCount:              runCount,
 	}
 }
 
-func NewPackageArg(name string, description string, isRequired bool, argType *generated.PackageArgumentType) *generated.PackageArg {
+func NewPackageArg(name string, description string, isRequired bool, argType *generated.PackageArgumentType, defaultValue *string) *generated.PackageArg {
 	return &generated.PackageArg{
-		Name:        name,
-		Description: description,
-		IsRequired:  isRequired,
-		TypeV2:      argType,
+		Name:         name,
+		Description:  description,
+		IsRequired:   isRequired,
+		TypeV2:       argType,
+		DefaultValue: defaultValue,
 	}
 }
 
@@ -54,13 +60,16 @@ func NewPackageRepository(
 	owner string,
 	name string,
 	rootPath string,
-
+	lastCommitTime time.Time,
+	defaultBranch string,
 ) *generated.PackageRepository {
 	return &generated.PackageRepository{
-		BaseUrl:  baseUrl,
-		Owner:    owner,
-		Name:     name,
-		RootPath: rootPath,
+		BaseUrl:        baseUrl,
+		Owner:          owner,
+		Name:           name,
+		RootPath:       rootPath,
+		LastCommitTime: timestamppb.New(lastCommitTime),
+		DefaultBranch:  defaultBranch,
 	}
 }
 

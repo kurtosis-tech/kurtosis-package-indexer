@@ -53,6 +53,9 @@ message KurtosisPackage {
 
   string version = 11;
 
+  string icon_url = 12;
+
+  uint32 run_count = 13;
 }
 
 message PackageArg {
@@ -63,6 +66,8 @@ message PackageArg {
   string description = 4;
 
   PackageArgumentType typeV2 = 5;
+
+  optional string defaultValue = 6;
 }
 
 enum ArgumentValueType {
@@ -90,4 +95,8 @@ message PackageRepository {
   string name = 3;
 
   string root_path = 4;
+
+  google.protobuf.Timestamp last_commit_time = 5;
+
+  string default_branch = 6;
 }

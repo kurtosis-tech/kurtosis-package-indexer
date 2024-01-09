@@ -1,7 +1,8 @@
 package crawler
 
 import (
-	"github.com/tilt-dev/starlark-lsp/pkg/docstring"
+	"github.com/kurtosis-tech/stacktrace"
+	"github.com/kurtosis-tech/starlark-lsp/pkg/docstring"
 	"regexp"
 	"strings"
 )
@@ -26,12 +27,21 @@ func ParseRunFunctionDocstring(rawDocstring string) (*KurtosisMainDotStar, error
 	for _, arg := range parsedDocstring.Args() {
 		argName, argType := parseNameAndType(arg.Name)
 
+		if argType == nil {
+			return nil, stacktrace.NewError("argument '%s' does not have a valid type", argName)
+		}
+
+		if argType.Type == StarlarkValueType_Dict && (argType.InnerType1 == nil || argType.InnerType2 == nil) {
+			return nil, stacktrace.NewError("argument '%s' is not a valid parameterized dictionary", argName)
+		}
+
 		if argName != "" {
 			arguments = append(arguments, &StarlarkFunctionArgument{
-				Name:        argName,
-				Description: arg.Desc,
-				Type:        argType,
-				IsRequired:  false,
+				Name:         argName,
+				Description:  arg.Desc,
+				Type:         argType,
+				IsRequired:   false,
+				DefaultValue: nil,
 			})
 		}
 	}

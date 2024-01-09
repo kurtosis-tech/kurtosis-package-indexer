@@ -2,6 +2,7 @@ version: 2.1
 
 
 orbs:
+  npm-publisher: uraway/npm-publisher@0.2.0
   aws-cli: circleci/aws-cli@4.0
   aws-ecs: circleci/aws-ecs@4.0
 
@@ -12,6 +13,9 @@ parameters:
   docker-engine-version:
     type: string
     default: "20.10.7"
+  ui-node-version:
+    type: string
+    default: 18.19.0
 
 executors:
   ubuntu_vm:
@@ -68,9 +72,24 @@ jobs:
           source server/scripts/_constants.env
           docker build -t "${IMAGE_ORG_AND_REPO}:dev" -f server/Dockerfile server/
 
+      # Checking the CircleCi built-in CI env vars
+      - run: |
+          echo "CI env var value: ${CI}"
+          echo "CIRCLECI env var value: ${CIRCLECI}"
+
       - run: |
           set -euo pipefail
-          kurtosis run ./kurtosis/main.star --enclave ci-check "{\"kurtosis_package_indexer_version\": \"dev\", \"github_user_token\": \"${KURTOSISBOT_GITHUB_TOKEN}\"}"
+          kurtosis run ./kurtosis/main.star --enclave ci-check "{\"kurtosis_package_indexer_version\": \"dev\", \"github_user_token\": \"${KURTOSISBOT_GITHUB_TOKEN}\", \"is_running_in_ci\": \"${CI}\"}"
+
+  publish_kurtosis_typescript_libs:
+    docker:
+      - image: "cimg/node:<< pipeline.parameters.ui-node-version>>"
+    steps:
+      - checkout
+      - run: api/typescript/scripts/build.sh
+      - npm-publisher/publish-from-package-version:
+          package-path: api/typescript
+          publish-token-variable: NPMJS_AUTH_TOKEN
 
   publish_server_image:
     docker:
@@ -138,6 +157,7 @@ workflows:
       - run_kurtosis_package:
           context:
             - github-user
+            - kurtosis-backend-snowflake-service-account
           requires:
             - build_api_golang
             - build_server
@@ -150,6 +170,14 @@ workflows:
           context:
             - docker-user
             - github-user
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^[0-9]+\.[0-9]+\.[0-9]+$/
+      - publish_kurtosis_typescript_libs:
+          context:
+            - npmjs-user
           filters:
             branches:
               ignore: /.*/

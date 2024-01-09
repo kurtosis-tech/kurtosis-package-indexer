@@ -91,3 +91,36 @@ func TestDocstringParser_EmptyDescription(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 }
+
+func TestDocstringParser_NotParameterizedDict(t *testing.T) {
+	dicArgWithWrongInnerTypesDocString := `
+    Args:
+		string_argument (string): A simple string argument.
+		wrong_dict (dict[x, x]): A not parameterized dictionary example. 
+	Returns:
+		Returns a bunch of stuff.
+`
+	result, err := ParseRunFunctionDocstring(dicArgWithWrongInnerTypesDocString)
+	require.ErrorContains(t, err, "does not have a valid type")
+	require.Nil(t, result)
+
+	dicArgWithOnlyOneValidInnerTypesDocString := `
+    Args:
+		wrong_dict (dict[string, x]): A not parameterized dictionary example. 
+	Returns:
+		Returns a bunch of stuff.
+`
+	result, err = ParseRunFunctionDocstring(dicArgWithOnlyOneValidInnerTypesDocString)
+	require.ErrorContains(t, err, "does not have a valid type")
+	require.Nil(t, result)
+
+	dicArgWithoutInnerTypesDocString := `
+    Args:
+		wrong_dict (dict): A not parameterized dictionary example. 
+	Returns:
+		Returns a bunch of stuff.
+`
+	result, err = ParseRunFunctionDocstring(dicArgWithoutInnerTypesDocString)
+	require.ErrorContains(t, err, "is not a valid parameterized dictionary")
+	require.Nil(t, result)
+}

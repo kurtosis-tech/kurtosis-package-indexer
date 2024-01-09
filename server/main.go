@@ -57,9 +57,9 @@ func main() {
 	if err != nil {
 		exitFailure(stacktrace.Propagate(err, "an error occurred creating the GitHubCrawler while bootstrapping the server"))
 	}
-	if err := indexerCrawler.Schedule(false); err != nil {
+	/*if err := indexerCrawler.Schedule(false); err != nil {
 		exitFailure(stacktrace.Propagate(err, "an error occurred scheduling the GitHubCrawler while bootstrapping the server"))
-	}
+	}*/
 
 	if err := runServer(indexerStore, indexerCrawler, metricsReporter); err != nil {
 		exitFailure(err)

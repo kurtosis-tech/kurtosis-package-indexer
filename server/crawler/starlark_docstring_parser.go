@@ -31,6 +31,10 @@ func ParseRunFunctionDocstring(rawDocstring string) (*KurtosisMainDotStar, error
 			return nil, stacktrace.NewError("argument '%s' does not have a valid type", argName)
 		}
 
+		if argType.Type == StarlarkValueType_Dict && (argType.InnerType1 == nil || argType.InnerType2 == nil) {
+			return nil, stacktrace.NewError("argument '%s' is not a valid parameterized dictionary", argName)
+		}
+
 		if argName != "" {
 			arguments = append(arguments, &StarlarkFunctionArgument{
 				Name:         argName,

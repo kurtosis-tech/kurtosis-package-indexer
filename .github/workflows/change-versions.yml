@@ -10,12 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: |
-          echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
-          sudo apt update
-          sudo apt install kudet
-        name: Install Kudet
+        with:
+          token: "${{ secrets.RELEASER_TOKEN }}"
+          fetch-depth: 0
       - name: Change versions
         run: |
-          scripts/update-package-versions.sh
+          api/typescript/scripts/update-package-versions.sh "$(cat version.txt)"
       - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          token: "${{ secrets.RELEASER_TOKEN }}"

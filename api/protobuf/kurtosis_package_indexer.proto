@@ -54,6 +54,8 @@ message KurtosisPackage {
   string version = 11;
 
   string icon_url = 12;
+
+  uint32 run_count = 13;
 }
 
 message PackageArg {

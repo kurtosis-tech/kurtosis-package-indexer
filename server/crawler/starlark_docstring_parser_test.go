@@ -92,6 +92,23 @@ func TestDocstringParser_EmptyDescription(t *testing.T) {
 	require.NotNil(t, result)
 }
 
+func TestDocstringParser_MultiTypeArgs(t *testing.T) {
+	docstring := `
+    Args:
+		relaychain (dict[string, string|dict]): A dict containing data for relay chain config.
+            - name (string): Name of relay chain.
+            - node (dict[string, string|bool]): A dict of node details.
+                - name (string): Name of node.
+                - node_type (string): Type of node.
+                - prometheus (bool): Boolean value to enable metrics for a given node.
+	Returns:
+		Returns a bunch of stuff.
+`
+	result, err := ParseRunFunctionDocstring(docstring)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+}
+
 func TestDocstringParser_NotParameterizedDict(t *testing.T) {
 	dicArgWithWrongInnerTypesDocString := `
     Args:

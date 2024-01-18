@@ -21,7 +21,7 @@ type StarlarkFunctionArgument struct {
 type StarlarkArgumentType struct {
 	Type StarlarkValueType
 
-	InnerType1 *StarlarkValueType
+	InnerTypes1 []*StarlarkValueType
 
-	InnerType2 *StarlarkValueType
+	InnerTypes2 []*StarlarkValueType
 }

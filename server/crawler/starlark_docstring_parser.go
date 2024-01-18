@@ -9,7 +9,7 @@ import (
 
 var (
 	argumentNameAndTypeRegexp = regexp.MustCompile(`\s*(?P<name>[a-zA-Z0-9_]+)\s*(?P<type>\(.+\)|)`)
-	dictTypeRegexp            = regexp.MustCompile(`dict\s*\[(?P<keyType>[a-zA-Z]+)\s*,\s*(?P<valueType>[a-zA-Z]+)\s*\]`)
+	dictTypeRegexp            = regexp.MustCompile(`dict\s*\[(?P<keyType>[a-zA-Z|]+)\s*,\s*(?P<valueType>[a-zA-Z|]+)\s*\]`)
 	listTypeRegexp            = regexp.MustCompile(`list\s*\[(?P<valueType>[a-zA-Z]+)\s*\]`)
 )
 

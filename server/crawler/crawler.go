@@ -757,24 +757,19 @@ func extractDockerComposePackageContent(
 
 	// TODO: Parse dockerComposeYamlFileContentResult for metadata about the compose file (similar to main dot star)
 
-	// no notion of main dot star in docker compose so leave fields blank for now
-	mainDotStarParsedContent := KurtosisMainDotStar{
-		Description:       "",
-		ReturnDescription: "",
-		Arguments:         []*StarlarkFunctionArgument{},
-	}
-
+	// no notion of main dot star in docker compose so leave main.star specific fields blank for now
 	return NewKurtosisPackageContent(
 		packageRepositoryMetadata,
 		normalizeName(fmt.Sprintf("%s/%s/%s/%s", githubUrl, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath)),
 		"",
-		mainDotStarParsedContent.Description,
-		mainDotStarParsedContent.ReturnDescription,
+		"",
+		"", // p
 		successfulParsingText,
 		nowAsUTC,
 		"",
 		"",
-		mainDotStarParsedContent.Arguments...,
+		0, // getting run count for docker compose packages
+		nil,
 	), true, nil
 }
 

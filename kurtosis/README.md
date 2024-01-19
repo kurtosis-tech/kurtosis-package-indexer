@@ -6,9 +6,9 @@ This Kurtosis package spins up a Kurtosis Package Indexer inside a Kurtosis encl
 Running the package
 -------------------
 
-Kurtosis Package Indexer requires a valid Github token to search Kurtosis packages on Github.
+Kurtosis Package Indexer requires a valid GitHub token to search Kurtosis packages on GitHub.
 The token can be passed either as a direct environment variable, or the indexer can also fetch
-it from the content of a file inside an S3 bukcet. See the indexer [README](../README.md) for more info 
+it from the content of a file inside an S3 bucket. See the indexer [README](../README.md) for more info 
 
 If the latter is used, make sure a file named `github-user-token.txt` is available in the S3 bucket
 under the path `${aws_bucket_user_folder}/kurtosis-package-indexer/`
@@ -35,4 +35,4 @@ The following arguments that can be passed to the package:
 ```
 
 Note that when running this package on Kurtosis cloud, the package will naturally use the AWS environment variable
-automatically provided to the package to fetch the Github token inside AWS S3.
+automatically provided to the package to fetch the GitHub token inside AWS S3.

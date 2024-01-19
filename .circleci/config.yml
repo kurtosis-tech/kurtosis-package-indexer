@@ -20,7 +20,7 @@ parameters:
 executors:
   ubuntu_vm:
     machine:
-      image: ubuntu-2004:202201-02
+      image: default
 
 # NOTE: Because CircleCI jobs run on separate machines from each other, we duplicate steps (like checkout) between jobs. This is because doing the "correct" DRY
 #  refactoring of, "one job for checkout, one job for build Docker image, etc." would require a) persisting files between jobs and b) persisting Docker images between

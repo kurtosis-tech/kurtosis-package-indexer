@@ -5,7 +5,7 @@ import (
 )
 
 type KurtosisPackageContent struct {
-	// RepositoryMetadata are metadata about the Github repository hosting the package
+	// RepositoryMetadata are metadata about the GitHub repository hosting the package
 	RepositoryMetadata *PackageRepositoryMetadata
 
 	// Name corresponds to the `name` field in the kurtosis.yml file
@@ -34,6 +34,12 @@ type KurtosisPackageContent struct {
 
 	// Commit SHA for the package
 	Version string
+
+	// The Kurtosis package icon's URL.
+	IconURL string
+
+	// RunCount represents the package run count provided by the Kurtosis metrics storage (currently Snowflake)
+	RunCount uint32
 }
 
 func NewKurtosisPackageContent(
@@ -45,6 +51,8 @@ func NewKurtosisPackageContent(
 	parsingResult string,
 	parsingTime *timestamppb.Timestamp,
 	version string,
+	iconURL string,
+	runCount uint32,
 	packageArguments ...*StarlarkFunctionArgument,
 ) *KurtosisPackageContent {
 	return &KurtosisPackageContent{
@@ -57,5 +65,7 @@ func NewKurtosisPackageContent(
 		ParsingResult:         parsingResult,
 		ParsingTime:           parsingTime,
 		Version:               version,
+		IconURL:               iconURL,
+		RunCount:              runCount,
 	}
 }

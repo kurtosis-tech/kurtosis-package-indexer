@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"github.com/google/go-github/v54/github"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/consts"
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/sirupsen/logrus"
 	"go.starlark.net/syntax"
@@ -24,7 +25,7 @@ var (
 func ParseStarlarkMainDotStar(kurtosisYamlContent *github.RepositoryContent) (*KurtosisMainDotStar, error) {
 	rawFileContent, err := kurtosisYamlContent.GetContent()
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "An error occurred getting the content of the '%s' file", kurtosisYamlFileName)
+		return nil, stacktrace.Propagate(err, "An error occurred getting the content of the '%s' file", consts.DefaultKurtosisYamlFilename)
 	}
 
 	parsedStarlarkFile, err := syntax.LegacyFileOptions().Parse("", rawFileContent, syntax.RetainComments)

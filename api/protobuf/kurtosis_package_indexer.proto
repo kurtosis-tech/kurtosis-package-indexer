@@ -53,6 +53,9 @@ message KurtosisPackage {
 
   string version = 11;
 
+  string icon_url = 12;
+
+  uint32 run_count = 13;
 }
 
 message PackageArg {
@@ -92,4 +95,8 @@ message PackageRepository {
   string name = 3;
 
   string root_path = 4;
+
+  google.protobuf.Timestamp last_commit_time = 5;
+
+  string default_branch = 6;
 }

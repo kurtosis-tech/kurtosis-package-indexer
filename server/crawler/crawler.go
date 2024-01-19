@@ -451,7 +451,7 @@ func (crawler *GithubCrawler) updateOrDeleteStoredPackages(ctx context.Context, 
 		packagesRunCount := crawler.getPackagesRunCountNotFailure(ctx)
 		kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata, packagesRunCount)
 		if err != nil {
-			return nil, nil, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
+			logrus.Warnf("An error occurred extracting content for Kurtosis package repository '%s'. Error was:\n%s", packageRepositoryLocator, err.Error())
 		}
 		if !packageFound {
 			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved. It will be removed from the store", packageRepositoryLocator)

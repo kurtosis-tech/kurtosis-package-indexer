@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.24](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.23...0.0.24) (2024-01-18)
+
+
+### Features
+
+* support reading from docker compose based packages ([#60](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/60)) ([57a7564](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/57a75645cf0a38e37a7d3910bf0a724648f37c8a))
+
+## [0.0.23](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.22...0.0.23) (2024-01-09)
+
+
+### Bug Fixes
+
+* crawler accidentally stopped ([#96](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/96)) ([71a7d0e](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/71a7d0e06d04e7bc83600f53e85d70e0cd1a4131))
+
 ## [0.0.22](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.21...0.0.22) (2024-01-09)
 
 

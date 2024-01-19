@@ -39,6 +39,15 @@ const (
 	onlyOneCommit = 1
 )
 
+var supportedDockerComposeYmlFilenames = []string{
+	"compose.yml",
+	"compose.yaml",
+	"docker-compose.yml",
+	"docker-compose.yaml",
+	"docker_compose.yml",
+	"docker_compose.yaml",
+}
+
 var (
 	zeroValueTime = time.Time{}
 )
@@ -442,7 +451,7 @@ func (crawler *GithubCrawler) updateOrDeleteStoredPackages(ctx context.Context, 
 		packagesRunCount := crawler.getPackagesRunCountNotFailure(ctx)
 		kurtosisPackageContent, packageFound, err := extractKurtosisPackageContent(ctx, githubClient, kurtosisPackageMetadata, packagesRunCount)
 		if err != nil {
-			return nil, nil, stacktrace.Propagate(err, "An error occurred extracting content for Kurtosis package repository '%s'", packageRepositoryLocator)
+			logrus.Warnf("An error occurred extracting content for Kurtosis package repository '%s'. Error was:\n%s", packageRepositoryLocator, err.Error())
 		}
 		if !packageFound {
 			logrus.Warnf("Kurtosis package repository content '%s' could not be retrieved. It will be removed from the store", packageRepositoryLocator)
@@ -604,7 +613,7 @@ func readCatalogAndGetPackagesRepositoryMetadata(ctx context.Context, client *gi
 }
 
 // If the package doesn't exist, returns an empty package content, false, and empty error
-// If package exists, but error occurred while extracting package content returns empty package content, false, with an error
+// If package exists, but error occurred while extracting package content, returns empty package content, false, with an error
 func extractKurtosisPackageContent(
 	ctx context.Context,
 	client *github.Client,
@@ -630,7 +639,16 @@ func extractKurtosisPackageContent(
 	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, repositoryOwner, repositoryName, kurtosisYamlFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == http.StatusNotFound {
 		logrus.Debugf("No '%s' file in repo '%s'", kurtosisYamlFilePath, repositoryFullName)
-		return nil, false, nil
+		logrus.Debugf("Attempting to extract a docker compose based package...")
+		composePackageContent, composePackageFound, err := extractDockerComposePackageContent(ctx, client, packageRepositoryMetadata)
+		if err != nil {
+			return nil, false, err
+		}
+		if !composePackageFound {
+			logrus.Debugf("No docker compose based package found in repo %v.", repositoryFullName)
+			return nil, false, nil
+		}
+		return composePackageContent, true, nil
 	} else if err != nil {
 		return nil, false, stacktrace.Propagate(err, "An error occurred reading content of Kurtosis Package '%s' - file '%s'", repositoryFullName, kurtosisYamlFilePath)
 	}
@@ -706,6 +724,52 @@ func extractKurtosisPackageContent(
 		packageIconURL,
 		runCount,
 		mainDotStarParsedContent.Arguments...,
+	), true, nil
+}
+
+// If the docker compose yaml doesn't exist, returns an empty package content, false, and empty error
+// If docker compose yaml exists, but error occurred while extracting package content, returns empty package content, false, with an error
+func extractDockerComposePackageContent(
+	ctx context.Context,
+	client *github.Client,
+	packageRepositoryMetadata *PackageRepositoryMetadata) (*KurtosisPackageContent, bool, error) {
+
+	repoGetContentOpts := &github.RepositoryContentGetOptions{
+		Ref: "",
+	}
+
+	nowAsUTC := getTimeProtobufInUTC()
+
+	var dockerComposeYamlFileContentResult *github.RepositoryContent
+	var dockerComposeYamlFilePath string
+	for _, dockerComposeYamlVariation := range supportedDockerComposeYmlFilenames {
+		dockerComposeYamlFilePath = fmt.Sprintf("%s/%s", packageRepositoryMetadata.RootPath, dockerComposeYamlVariation)
+
+		yamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, dockerComposeYamlFilePath, repoGetContentOpts)
+		if err == nil && resp != nil && resp.StatusCode != 404 {
+			dockerComposeYamlFileContentResult = yamlFileContentResult
+			break
+		}
+	}
+	if dockerComposeYamlFileContentResult == nil {
+		return nil, false, nil
+	}
+
+	// TODO: Parse dockerComposeYamlFileContentResult for metadata about the compose file (similar to main dot star)
+
+	// no notion of main dot star in docker compose so leave main.star specific fields blank for now
+	return NewKurtosisPackageContent(
+		packageRepositoryMetadata,
+		normalizeName(fmt.Sprintf("%s/%s/%s/%s", githubUrl, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath)),
+		"",
+		"",
+		"", // p
+		successfulParsingText,
+		nowAsUTC,
+		"",
+		"",
+		0, // getting run count for docker compose packages
+		nil,
 	), true, nil
 }
 

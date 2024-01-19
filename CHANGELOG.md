@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.25](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.24...0.0.25) (2024-01-19)
+
+
+### Bug Fixes
+
+* adding a new line in the Readme file to force release please trigger ([#101](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/101)) ([40a07db](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/40a07db8754d2b6dc51ed394b12bb7897290f2ea))
+
 ## [0.0.24](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.23...0.0.24) (2024-01-18)
 
 

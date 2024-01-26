@@ -763,12 +763,12 @@ func extractDockerComposePackageContent(
 		normalizeName(fmt.Sprintf("%s/%s/%s/%s", githubUrl, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath)),
 		"",
 		"",
-		"", // p
+		"",
 		successfulParsingText,
 		nowAsUTC,
 		"",
 		"",
-		0, // getting run count for docker compose packages
+		0,
 		nil,
 	), true, nil
 }

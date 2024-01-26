@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.26](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.25...0.0.26) (2024-01-26)
+
+
+### Bug Fixes
+
+* add compose to read pkg err ([#104](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/104)) ([7fa417a](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/7fa417afd1642d16a595fecf4523c8b6e6eec191))
+* Docker compose filepath creation in the extractDockerComposePackageContent function ([#106](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/106)) ([1414a0c](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/1414a0c98f1691c37104b8abae5b5fd48bf60137))
+
 ## [0.0.25](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.24...0.0.25) (2024-01-19)
 
 

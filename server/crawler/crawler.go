@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 )
@@ -525,17 +526,19 @@ func (crawler *GithubCrawler) getPackagesRunCountNotFailure(ctx context.Context)
 func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *generated.KurtosisPackage {
 	var kurtosisPackageArgsApi []*generated.PackageArg
 	for _, arg := range kurtosisPackageContent.PackageArguments {
-		var convertedPackageArg *generated.PackageArg
-		convertedPackageArgTypeV2Ptr, ok := convertArgumentType(arg.Type)
-		if !ok {
-			if arg.Type != nil {
-				logrus.Warnf("Argument type '%s' for argument '%s' in package '%s' could not be parsed to the new format",
-					arg.Type, arg.Name, kurtosisPackageContent.Name)
+		if arg != nil {
+			var convertedPackageArg *generated.PackageArg
+			convertedPackageArgTypeV2Ptr, ok := convertArgumentType(arg.Type)
+			if !ok {
+				if arg.Type != nil {
+					logrus.Warnf("Argument type '%s' for argument '%s' in package '%s' could not be parsed to the new format",
+						arg.Type, arg.Name, kurtosisPackageContent.Name)
+				}
 			}
+			convertedPackageArg = api_constructors.NewPackageArg(
+				arg.Name, arg.Description, arg.IsRequired, convertedPackageArgTypeV2Ptr, arg.DefaultValue)
+			kurtosisPackageArgsApi = append(kurtosisPackageArgsApi, convertedPackageArg)
 		}
-		convertedPackageArg = api_constructors.NewPackageArg(
-			arg.Name, arg.Description, arg.IsRequired, convertedPackageArgTypeV2Ptr, arg.DefaultValue)
-		kurtosisPackageArgsApi = append(kurtosisPackageArgsApi, convertedPackageArg)
 	}
 	packageRepository := api_constructors.NewPackageRepository(
 		githubUrl,
@@ -743,7 +746,7 @@ func extractDockerComposePackageContent(
 	var dockerComposeYamlFileContentResult *github.RepositoryContent
 	var dockerComposeYamlFilePath string
 	for _, dockerComposeYamlVariation := range supportedDockerComposeYmlFilenames {
-		dockerComposeYamlFilePath = fmt.Sprintf("%s/%s", packageRepositoryMetadata.RootPath, dockerComposeYamlVariation)
+		dockerComposeYamlFilePath = path.Join(packageRepositoryMetadata.RootPath, dockerComposeYamlVariation)
 
 		yamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, dockerComposeYamlFilePath, repoGetContentOpts)
 		if err == nil && resp != nil && resp.StatusCode != 404 {

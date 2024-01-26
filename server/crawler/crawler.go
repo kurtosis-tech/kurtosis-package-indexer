@@ -178,7 +178,7 @@ func (crawler *GithubCrawler) ReadPackage(
 	}
 	if !packageFound {
 		logrus.Warn("No Kurtosis package found.") // don't want to log provided package repository locator bc it's a security risk (e.g. malicious data)
-		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files.", packageMetadata.GetLocator(), consts.DefaultKurtosisYamlFilename, consts.StarlarkMainDotStarFileName)
+		return nil, stacktrace.NewError("No Kurtosis package found. Ensure that a package exists at '%v' with valid '%v' and '%v' files or one of the following support docker compose files '%v'.", packageMetadata.GetLocator(), consts.DefaultKurtosisYamlFilename, consts.StarlarkMainDotStarFileName, supportedDockerComposeYmlFilenames)
 	}
 
 	kurtosisPackageApi := convertRepoContentToApi(kurtosisPackageContent)

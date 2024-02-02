@@ -52,3 +52,11 @@ func (handler KurtosisPackageIndexerHandlerImpl) ReadPackage(ctx context.Context
 	}
 	return connect.NewResponse(resp), nil
 }
+
+func (handler KurtosisPackageIndexerHandlerImpl) RereadLoggerLevel(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	resp, err := handler.resource.RereadLoggerLevel(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(resp), nil
+}

@@ -46,6 +46,9 @@ const (
 	// KurtosisPackageIndexerReadPackageProcedure is the fully-qualified name of the
 	// KurtosisPackageIndexer's ReadPackage RPC.
 	KurtosisPackageIndexerReadPackageProcedure = "/kurtosis_package_indexer.KurtosisPackageIndexer/ReadPackage"
+	// KurtosisPackageIndexerRereadLoggerLevelProcedure is the fully-qualified name of the
+	// KurtosisPackageIndexer's RereadLoggerLevel RPC.
+	KurtosisPackageIndexerRereadLoggerLevelProcedure = "/kurtosis_package_indexer.KurtosisPackageIndexer/RereadLoggerLevel"
 )
 
 // KurtosisPackageIndexerClient is a client for the kurtosis_package_indexer.KurtosisPackageIndexer
@@ -55,6 +58,7 @@ type KurtosisPackageIndexerClient interface {
 	GetPackages(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[generated.GetPackagesResponse], error)
 	Reindex(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	ReadPackage(context.Context, *connect.Request[generated.ReadPackageRequest]) (*connect.Response[generated.ReadPackageResponse], error)
+	RereadLoggerLevel(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewKurtosisPackageIndexerClient constructs a client for the
@@ -88,15 +92,21 @@ func NewKurtosisPackageIndexerClient(httpClient connect.HTTPClient, baseURL stri
 			baseURL+KurtosisPackageIndexerReadPackageProcedure,
 			opts...,
 		),
+		rereadLoggerLevel: connect.NewClient[emptypb.Empty, emptypb.Empty](
+			httpClient,
+			baseURL+KurtosisPackageIndexerRereadLoggerLevelProcedure,
+			opts...,
+		),
 	}
 }
 
 // kurtosisPackageIndexerClient implements KurtosisPackageIndexerClient.
 type kurtosisPackageIndexerClient struct {
-	isAvailable *connect.Client[emptypb.Empty, emptypb.Empty]
-	getPackages *connect.Client[emptypb.Empty, generated.GetPackagesResponse]
-	reindex     *connect.Client[emptypb.Empty, emptypb.Empty]
-	readPackage *connect.Client[generated.ReadPackageRequest, generated.ReadPackageResponse]
+	isAvailable       *connect.Client[emptypb.Empty, emptypb.Empty]
+	getPackages       *connect.Client[emptypb.Empty, generated.GetPackagesResponse]
+	reindex           *connect.Client[emptypb.Empty, emptypb.Empty]
+	readPackage       *connect.Client[generated.ReadPackageRequest, generated.ReadPackageResponse]
+	rereadLoggerLevel *connect.Client[emptypb.Empty, emptypb.Empty]
 }
 
 // IsAvailable calls kurtosis_package_indexer.KurtosisPackageIndexer.IsAvailable.
@@ -119,6 +129,11 @@ func (c *kurtosisPackageIndexerClient) ReadPackage(ctx context.Context, req *con
 	return c.readPackage.CallUnary(ctx, req)
 }
 
+// RereadLoggerLevel calls kurtosis_package_indexer.KurtosisPackageIndexer.RereadLoggerLevel.
+func (c *kurtosisPackageIndexerClient) RereadLoggerLevel(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	return c.rereadLoggerLevel.CallUnary(ctx, req)
+}
+
 // KurtosisPackageIndexerHandler is an implementation of the
 // kurtosis_package_indexer.KurtosisPackageIndexer service.
 type KurtosisPackageIndexerHandler interface {
@@ -126,6 +141,7 @@ type KurtosisPackageIndexerHandler interface {
 	GetPackages(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[generated.GetPackagesResponse], error)
 	Reindex(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	ReadPackage(context.Context, *connect.Request[generated.ReadPackageRequest]) (*connect.Response[generated.ReadPackageResponse], error)
+	RereadLoggerLevel(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewKurtosisPackageIndexerHandler builds an HTTP handler from the service implementation. It
@@ -154,6 +170,11 @@ func NewKurtosisPackageIndexerHandler(svc KurtosisPackageIndexerHandler, opts ..
 		svc.ReadPackage,
 		opts...,
 	)
+	kurtosisPackageIndexerRereadLoggerLevelHandler := connect.NewUnaryHandler(
+		KurtosisPackageIndexerRereadLoggerLevelProcedure,
+		svc.RereadLoggerLevel,
+		opts...,
+	)
 	return "/kurtosis_package_indexer.KurtosisPackageIndexer/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case KurtosisPackageIndexerIsAvailableProcedure:
@@ -164,6 +185,8 @@ func NewKurtosisPackageIndexerHandler(svc KurtosisPackageIndexerHandler, opts ..
 			kurtosisPackageIndexerReindexHandler.ServeHTTP(w, r)
 		case KurtosisPackageIndexerReadPackageProcedure:
 			kurtosisPackageIndexerReadPackageHandler.ServeHTTP(w, r)
+		case KurtosisPackageIndexerRereadLoggerLevelProcedure:
+			kurtosisPackageIndexerRereadLoggerLevelHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -187,4 +210,8 @@ func (UnimplementedKurtosisPackageIndexerHandler) Reindex(context.Context, *conn
 
 func (UnimplementedKurtosisPackageIndexerHandler) ReadPackage(context.Context, *connect.Request[generated.ReadPackageRequest]) (*connect.Response[generated.ReadPackageResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kurtosis_package_indexer.KurtosisPackageIndexer.ReadPackage is not implemented"))
+}
+
+func (UnimplementedKurtosisPackageIndexerHandler) RereadLoggerLevel(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kurtosis_package_indexer.KurtosisPackageIndexer.RereadLoggerLevel is not implemented"))
 }

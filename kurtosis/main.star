@@ -16,6 +16,8 @@ KURTOSIS_SNOWFLAKE_ROLE_KEY = "kurtosis_snowflake_role"
 KURTOSIS_SNOWFLAKE_USER_KEY = "kurtosis_snowflake_user"
 KURTOSIS_SNOWFLAKE_WAREHOUSE_KEY = "kurtosis_snowflake_warehouse"
 
+DEFAULT_LOGGER_LOG_LEVEL = "debug"
+
 
 def run(
     plan,
@@ -79,6 +81,8 @@ def run(
         indexer_env_vars["AWS_BUCKET_REGION"] = aws_env.bucket_region
         indexer_env_vars["AWS_BUCKET_NAME"] = aws_env.bucket_name
         indexer_env_vars["AWS_BUCKET_FOLDER"] = "{}/{}".format(aws_env.bucket_user_folder, AWS_S3_BUCKET_SUBFOLDER)
+
+    indexer_env_vars["LOGGER_LOG_LEVEL"] = DEFAULT_LOGGER_LOG_LEVEL
 
     image_name_and_version = "{}:{}".format(KURTOSIS_PACKAGE_INDEXER_IMAGE, kurtosis_package_indexer_version)
     indexer_service = plan.add_service(

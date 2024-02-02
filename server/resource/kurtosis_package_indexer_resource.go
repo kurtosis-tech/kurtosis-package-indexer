@@ -5,6 +5,7 @@ import (
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/api_constructors"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/crawler"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/logger"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/metrics"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
 	"github.com/kurtosis-tech/stacktrace"
@@ -63,4 +64,14 @@ func (resource *KurtosisPackageIndexer) ReadPackage(ctx context.Context, input *
 		return nil, stacktrace.Propagate(err, "an error occurred reading package '%+v'", input.GetRepositoryMetadata())
 	}
 	return api_constructors.NewReadPackageResponse(pack), nil
+}
+
+func (resource *KurtosisPackageIndexer) RereadLoggerLevel(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	logrus.Debugf("Rereading logger level configuration...")
+	if err := logger.SetLevel(); err != nil {
+		return nil, stacktrace.Propagate(err, "Error setting the logger level")
+	}
+	logrus.Debugf("...login level configuration readed.")
+
+	return &emptypb.Empty{}, nil
 }

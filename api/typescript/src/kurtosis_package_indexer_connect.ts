@@ -48,6 +48,15 @@ export const KurtosisPackageIndexer = {
       O: ReadPackageResponse,
       kind: MethodKind.Unary,
     },
+    /**
+     * @generated from rpc kurtosis_package_indexer.KurtosisPackageIndexer.RereadLoggerLevel
+     */
+    rereadLoggerLevel: {
+      name: "RereadLoggerLevel",
+      I: Empty,
+      O: Empty,
+      kind: MethodKind.Unary,
+    },
   }
 } as const;
 

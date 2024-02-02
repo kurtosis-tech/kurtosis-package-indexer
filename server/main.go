@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated/generatedconnect"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/crawler"
+	"github.com/kurtosis-tech/kurtosis-package-indexer/server/logger"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/metrics"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/resource"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/store"
@@ -11,9 +12,6 @@ import (
 	"github.com/kurtosis-tech/stacktrace"
 	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
-	"path"
-	"runtime"
-	"strings"
 	"time"
 )
 
@@ -24,18 +22,13 @@ const (
 	failureExitCode = 1
 
 	grpcServerStopGracePeriod = 5 * time.Second
-
-	forceColors   = true
-	fullTimestamp = true
-
-	logMethodAlongWithLogLine = true
-	functionPathSeparator     = "."
-	emptyFunctionName         = ""
 )
 
 func main() {
 	ctx := context.Background()
-	configureLogger()
+	if err := logger.ConfigureLogger(); err != nil {
+		exitFailure(err)
+	}
 
 	// Set up the store which will store all the packages. For now all in memory
 	// I left a comment to remember that there were implementations for etcd and boltdb but, both were removed
@@ -85,45 +78,6 @@ func runServer(indexerStore store.KurtosisIndexerStore, indexerCrawler *crawler.
 		logrus.Error("An error occurred running the server", err)
 	}
 	return nil
-}
-
-func configureLogger() {
-	logrus.SetLevel(logrus.DebugLevel)
-	// This allows the filename & function to be reported
-	logrus.SetReportCaller(logMethodAlongWithLogLine)
-	// NOTE: we'll want to change the ForceColors to false if we ever want structured logging
-	logrus.SetFormatter(&logrus.TextFormatter{
-		ForceColors:               forceColors,
-		DisableColors:             false,
-		ForceQuote:                false,
-		DisableQuote:              false,
-		EnvironmentOverrideColors: false,
-		DisableTimestamp:          false,
-		FullTimestamp:             fullTimestamp,
-		TimestampFormat:           "",
-		DisableSorting:            false,
-		SortingFunc:               nil,
-		DisableLevelTruncation:    false,
-		PadLevelText:              false,
-		QuoteEmptyFields:          false,
-		FieldMap:                  nil,
-		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
-			fullFunctionPath := strings.Split(f.Function, functionPathSeparator)
-			functionName := fullFunctionPath[len(fullFunctionPath)-1]
-			_, filename := path.Split(f.File)
-			return emptyFunctionName, formatFilenameFunctionForLogs(filename, functionName)
-		},
-	})
-}
-
-func formatFilenameFunctionForLogs(filename string, functionName string) string {
-	var output strings.Builder
-	output.WriteString("[")
-	output.WriteString(filename)
-	output.WriteString(":")
-	output.WriteString(functionName)
-	output.WriteString("]")
-	return output.String()
 }
 
 func exitFailure(err error) {

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.27](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.26...0.0.27) (2024-02-02)
+
+
+### Features
+
+* configuring logger log level at runtime ([#107](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/107)) ([bd87d35](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/bd87d35a7262163f3c745a2eece308913219019c))
+
 ## [0.0.26](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.25...0.0.26) (2024-01-26)
 
 

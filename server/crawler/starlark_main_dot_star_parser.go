@@ -28,7 +28,11 @@ func ParseStarlarkMainDotStar(kurtosisYamlContent *github.RepositoryContent) (*K
 		return nil, stacktrace.Propagate(err, "An error occurred getting the content of the '%s' file", consts.DefaultKurtosisYamlFilename)
 	}
 
-	parsedStarlarkFile, err := syntax.LegacyFileOptions().Parse("", rawFileContent, syntax.RetainComments)
+	return ParseMainDotStarContent(rawFileContent)
+}
+
+func ParseMainDotStarContent(rawFileContent string) (*KurtosisMainDotStar, error) {
+	parsedStarlarkFile, err := syntax.Parse("", rawFileContent, syntax.RetainComments)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "An error occurred parsing the Starlark file")
 	}

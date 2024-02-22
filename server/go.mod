@@ -16,7 +16,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/snowflakedb/gosnowflake v1.7.0
 	github.com/stretchr/testify v1.8.4
-	go.starlark.net v0.0.0-20230814145427-12f4cb8177e4
+	go.starlark.net v0.0.0-20230224151120-c52844e64a10
 	golang.org/x/oauth2 v0.11.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v3 v3.0.1

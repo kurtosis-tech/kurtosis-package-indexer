@@ -3,6 +3,12 @@ package crawler
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
+	"path"
+	"strings"
+	"time"
+
 	"github.com/google/go-github/v54/github"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/api_constructors"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
@@ -13,13 +19,9 @@ import (
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/ticker"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
 	"github.com/kurtosis-tech/stacktrace"
+	"github.com/hashicorp/go-envparse"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"net/http"
-	"net/url"
-	"path"
-	"strings"
-	"time"
 )
 
 const (
@@ -38,6 +40,8 @@ const (
 	noDefaultBranchSet = ""
 
 	onlyOneCommit = 1
+
+	dockerComposeEnvFilename = ".env"
 )
 
 var supportedDockerComposeYmlFilenames = []string{
@@ -642,7 +646,7 @@ func extractKurtosisPackageContent(
 	kurtosisYamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, repositoryOwner, repositoryName, kurtosisYamlFilePath, repoGetContentOpts)
 	if err != nil && resp != nil && resp.StatusCode == http.StatusNotFound {
 		logrus.Debugf("No '%s' file in repo '%s'", kurtosisYamlFilePath, repositoryFullName)
-		logrus.Debugf("Attempting to extract a docker compose based package...")
+		logrus.Debug("Attempting to extract a docker compose based package...")
 		composePackageContent, composePackageFound, err := extractDockerComposePackageContent(ctx, client, packageRepositoryMetadata)
 		if err != nil {
 			return nil, false, err
@@ -749,7 +753,7 @@ func extractDockerComposePackageContent(
 		dockerComposeYamlFilePath = path.Join(packageRepositoryMetadata.RootPath, dockerComposeYamlVariation)
 
 		yamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, dockerComposeYamlFilePath, repoGetContentOpts)
-		if err == nil && resp != nil && resp.StatusCode != 404 {
+		if err == nil && resp != nil && resp.StatusCode != http.StatusNotFound {
 			dockerComposeYamlFileContentResult = yamlFileContentResult
 			break
 		}
@@ -757,11 +761,11 @@ func extractDockerComposePackageContent(
 	if dockerComposeYamlFileContentResult == nil {
 		return nil, false, nil
 	}
-
+	
 	// TODO: Parse dockerComposeYamlFileContentResult for metadata about the compose file (similar to main dot star)
 
 	// no notion of main dot star in docker compose so leave main.star specific fields blank for now
-	return NewKurtosisPackageContent(
+	packageContent := NewKurtosisPackageContent(
 		packageRepositoryMetadata,
 		normalizeName(fmt.Sprintf("%s/%s/%s/%s", githubUrl, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath)),
 		"",
@@ -773,7 +777,58 @@ func extractDockerComposePackageContent(
 		"",
 		0,
 		nil,
-	), true, nil
+	)
+
+	dockerComposeEnvFilePath := path.Join(packageRepositoryMetadata.RootPath, dockerComposeEnvFilename)
+
+	envFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, dockerComposeEnvFilePath, repoGetContentOpts)
+	if err != nil {
+		return nil, false, stacktrace.Propagate(err, "an error occurred retrieving the docker compose env file")
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		logrus.Warnf("Docker compose repository '%s' is missing an env file", packageRepositoryMetadata.Name)
+		return packageContent, true, nil
+	}
+
+	envFileContentArguments, err := extractArgumentsFromEnvFileContent(envFileContentResult)
+	if err != nil {
+		return nil, false, stacktrace.Propagate(err, "an error occurred extracting the arguments from the docker compose env file")
+	}
+	packageContent.PackageArguments = envFileContentArguments
+	
+	return packageContent, true, nil
+}
+
+func extractArgumentsFromEnvFileContent(envFileContent *github.RepositoryContent) ([]*StarlarkFunctionArgument, error) {
+	envFileContentStr, err := envFileContent.GetContent()
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred decoding the docker compose env file")
+	}
+	envFileContentReader := strings.NewReader(envFileContentStr)
+	envVars, err := envparse.Parse(envFileContentReader)
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "an error occurred parsing the docker compose env file")
+	}
+	
+	envFileArguments := make([]*StarlarkFunctionArgument, len(envVars))
+	index := 0
+	for key, val := range envVars {
+		arg := &StarlarkFunctionArgument{
+			Name: key,
+			Description: "",
+			Type: &StarlarkArgumentType{
+				Type:       StarlarkValueType_String,
+				InnerType1: nil,
+				InnerType2: nil,
+			},
+			IsRequired: true,
+			DefaultValue: &val,
+		}
+		envFileArguments[index] = arg
+		index += 1
+	} 
+
+	return envFileArguments, nil
 }
 
 func getRepositoryStarsDefaultBranchAndLastCommitDate(

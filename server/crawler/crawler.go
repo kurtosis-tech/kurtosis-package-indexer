@@ -764,6 +764,18 @@ func extractDockerComposePackageContent(
 	
 	// TODO: Parse dockerComposeYamlFileContentResult for metadata about the compose file (similar to main dot star)
 
+	var envFileContentArguments []*StarlarkFunctionArgument
+	dockerComposeEnvFilePath := path.Join(packageRepositoryMetadata.RootPath, dockerComposeEnvFilename)
+	envFileContentResult, _, _, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, dockerComposeEnvFilePath, repoGetContentOpts)
+	if err != nil {
+		logrus.Debugf("Docker compose repository '%s' is missing an env file", packageRepositoryMetadata.Name)
+	} else {
+		envFileContentArguments, err = extractArgumentsFromEnvFileContent(envFileContentResult)
+		if err != nil {
+			return nil, false, stacktrace.Propagate(err, "an error occurred extracting the arguments from the docker compose env file")
+		}
+	}
+
 	// no notion of main dot star in docker compose so leave main.star specific fields blank for now
 	packageContent := NewKurtosisPackageContent(
 		packageRepositoryMetadata,
@@ -776,26 +788,9 @@ func extractDockerComposePackageContent(
 		"",
 		"",
 		0,
-		nil,
+		envFileContentArguments...,
 	)
 
-	dockerComposeEnvFilePath := path.Join(packageRepositoryMetadata.RootPath, dockerComposeEnvFilename)
-
-	envFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, dockerComposeEnvFilePath, repoGetContentOpts)
-	if err != nil {
-		return nil, false, stacktrace.Propagate(err, "an error occurred retrieving the docker compose env file")
-	}
-	if resp.StatusCode == http.StatusNotFound {
-		logrus.Warnf("Docker compose repository '%s' is missing an env file", packageRepositoryMetadata.Name)
-		return packageContent, true, nil
-	}
-
-	envFileContentArguments, err := extractArgumentsFromEnvFileContent(envFileContentResult)
-	if err != nil {
-		return nil, false, stacktrace.Propagate(err, "an error occurred extracting the arguments from the docker compose env file")
-	}
-	packageContent.PackageArguments = envFileContentArguments
-	
 	return packageContent, true, nil
 }
 

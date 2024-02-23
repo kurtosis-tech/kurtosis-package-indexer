@@ -8,6 +8,7 @@ require (
 	connectrpc.com/connect v1.11.1
 	github.com/aws/aws-sdk-go v1.44.334
 	github.com/google/go-github/v54 v54.0.0
+	github.com/hashicorp/go-envparse v0.1.0
 	github.com/kurtosis-tech/kurtosis-package-indexer/api/golang v0.0.0-20231220155208-4ae5a14a79d0
 	github.com/kurtosis-tech/kurtosis/connect-server v0.0.0-20230825003324-75d481e0db8c
 	github.com/kurtosis-tech/stacktrace v0.0.0-20211028211901-1c67a77b5409

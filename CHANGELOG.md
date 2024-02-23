@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.28](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.27...0.0.28) (2024-02-23)
+
+
+### Features
+
+* added a method that works on raw file content ([#109](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/109)) ([6d21bec](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/6d21bec492d50bf4398f4f75453e8f5d0ac12a19))
+* Extract package arguments from the docker compose env file ([#112](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/112)) ([3c2b5e3](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/3c2b5e3c8c8cc1cdbc67f043544e49c5ec4a47ce))
+
 ## [0.0.27](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.26...0.0.27) (2024-02-02)
 
 

@@ -816,7 +816,7 @@ func extractArgumentsFromEnvFileContent(envFileContent *github.RepositoryContent
 				InnerType1: nil,
 				InnerType2: nil,
 			},
-			IsRequired: true,
+			IsRequired: false,
 			DefaultValue: &val,
 		}
 		envFileArguments[index] = arg

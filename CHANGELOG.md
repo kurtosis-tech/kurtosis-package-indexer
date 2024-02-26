@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.29](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.28...0.0.29) (2024-02-26)
+
+
+### Bug Fixes
+
+* The docker compose package arguments should all be optional ([#113](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/113)) ([d679d9d](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/d679d9da55ff6a489f0121ec587caaa4f242620e))
+
 ## [0.0.28](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.27...0.0.28) (2024-02-23)
 
 

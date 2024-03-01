@@ -43,7 +43,7 @@ func NewKurtosisPackage(
 		Version:               version,
 		IconUrl:               iconURL,
 		RunCount:              runCount,
-		LocatorRoot:           locatorRoot,
+		Locator:               locatorRoot,
 	}
 }
 

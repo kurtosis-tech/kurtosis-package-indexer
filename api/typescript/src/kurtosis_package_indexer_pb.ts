@@ -233,9 +233,11 @@ export class KurtosisPackage extends Message<KurtosisPackage> {
   runCount = 0;
 
   /**
-   * @generated from field: string locator = 14;
+   * The locator root for the package is set in the kurtosis.yml name field. More here: https://docs.kurtosis.com/advanced-concepts/packages
+   *
+   * @generated from field: string locator_root = 14;
    */
-  locator = "";
+  locatorRoot = "";
 
   constructor(data?: PartialMessage<KurtosisPackage>) {
     super();
@@ -258,7 +260,7 @@ export class KurtosisPackage extends Message<KurtosisPackage> {
     { no: 11, name: "version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 12, name: "icon_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 13, name: "run_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
-    { no: 14, name: "locator", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 14, name: "locator_root", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): KurtosisPackage {

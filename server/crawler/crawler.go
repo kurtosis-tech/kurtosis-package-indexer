@@ -553,6 +553,9 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.RepositoryMetadata.DefaultBranch,
 	)
 
+	// The locator root for the package is set in the kurtosis.yml name field. More here: https://docs.kurtosis.com/advanced-concepts/packages
+	packageLocatorRoot := path.Join(kurtosisPackageContent.Name, consts.StarlarkMainDotStarFileName)
+
 	return api_constructors.NewKurtosisPackage(
 		kurtosisPackageContent.Name,
 		kurtosisPackageContent.Description,
@@ -565,6 +568,7 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.Version,
 		kurtosisPackageContent.IconURL,
 		kurtosisPackageContent.RunCount,
+		packageLocatorRoot,
 		kurtosisPackageArgsApi...,
 	)
 }

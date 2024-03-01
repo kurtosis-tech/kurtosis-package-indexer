@@ -59,7 +59,8 @@ message KurtosisPackage {
 
   uint32 run_count = 13;
 
-  string locator = 14;
+  // The locator root for the package is set in the kurtosis.yml name field. More here: https://docs.kurtosis.com/advanced-concepts/packages
+  string locator_root = 14;
 }
 
 message PackageArg {

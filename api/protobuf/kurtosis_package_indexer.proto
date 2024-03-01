@@ -58,6 +58,8 @@ message KurtosisPackage {
   string icon_url = 12;
 
   uint32 run_count = 13;
+
+  string locator = 14;
 }
 
 message PackageArg {

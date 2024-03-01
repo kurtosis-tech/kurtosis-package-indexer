@@ -232,6 +232,11 @@ export class KurtosisPackage extends Message<KurtosisPackage> {
    */
   runCount = 0;
 
+  /**
+   * @generated from field: string locator = 14;
+   */
+  locator = "";
+
   constructor(data?: PartialMessage<KurtosisPackage>) {
     super();
     proto3.util.initPartial(data, this);
@@ -253,6 +258,7 @@ export class KurtosisPackage extends Message<KurtosisPackage> {
     { no: 11, name: "version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 12, name: "icon_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 13, name: "run_count", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 14, name: "locator", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): KurtosisPackage {

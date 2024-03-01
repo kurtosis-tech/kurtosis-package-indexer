@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/go-github/v54/github"
+	"github.com/hashicorp/go-envparse"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/api_constructors"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/api/golang/generated"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/catalog"
@@ -19,7 +20,6 @@ import (
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/ticker"
 	"github.com/kurtosis-tech/kurtosis-package-indexer/server/types"
 	"github.com/kurtosis-tech/stacktrace"
-	"github.com/hashicorp/go-envparse"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -761,7 +761,7 @@ func extractDockerComposePackageContent(
 	if dockerComposeYamlFileContentResult == nil {
 		return nil, false, nil
 	}
-	
+
 	// TODO: Parse dockerComposeYamlFileContentResult for metadata about the compose file (similar to main dot star)
 
 	var envFileContentArguments []*StarlarkFunctionArgument
@@ -804,24 +804,24 @@ func extractArgumentsFromEnvFileContent(envFileContent *github.RepositoryContent
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "an error occurred parsing the docker compose env file")
 	}
-	
+
 	envFileArguments := make([]*StarlarkFunctionArgument, len(envVars))
 	index := 0
 	for key, val := range envVars {
 		arg := &StarlarkFunctionArgument{
-			Name: key,
+			Name:        key,
 			Description: "",
 			Type: &StarlarkArgumentType{
 				Type:       StarlarkValueType_String,
 				InnerType1: nil,
 				InnerType2: nil,
 			},
-			IsRequired: false,
+			IsRequired:   false,
 			DefaultValue: &val,
 		}
 		envFileArguments[index] = arg
 		index += 1
-	} 
+	}
 
 	return envFileArguments, nil
 }

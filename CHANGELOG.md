@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.31](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.30...0.0.31) (2024-03-04)
+
+
+### Bug Fixes
+
+* setting default docker image for CI remote docker setup ([#118](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/118)) ([011466d](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/011466df0bf9a41941bb9c30f683d607d9d6940f))
+
 ## [0.0.30](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.29...0.0.30) (2024-03-01)
 
 

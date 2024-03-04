@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.30](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.29...0.0.30) (2024-03-01)
+
+
+### Features
+
+* add the package `locator_root` in the responses ([#116](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/116)) ([a1ec7c6](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/a1ec7c659481dc75f6e2bf2618b636b5bb4a4922)), closes [#115](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/115)
+
 ## [0.0.29](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.28...0.0.29) (2024-02-26)
 
 

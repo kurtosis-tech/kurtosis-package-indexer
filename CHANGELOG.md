@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.32](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.31...0.0.32) (2024-03-25)
+
+
+### Features
+
+* specify locator in kurtosis package content ([#122](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/122)) ([faa0dfe](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/faa0dfec1d1e4c60456de514e36ae4896eef451e))
+
 ## [0.0.31](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.30...0.0.31) (2024-03-04)
 
 

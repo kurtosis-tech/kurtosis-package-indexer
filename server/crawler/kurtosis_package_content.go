@@ -40,6 +40,9 @@ type KurtosisPackageContent struct {
 
 	// RunCount represents the package run count provided by the Kurtosis metrics storage (currently Snowflake)
 	RunCount uint32
+
+	// The locator that can be used from within a Starlark script to run this package
+	Locator string
 }
 
 func NewKurtosisPackageContent(
@@ -53,6 +56,7 @@ func NewKurtosisPackageContent(
 	version string,
 	iconURL string,
 	runCount uint32,
+	locator string,
 	packageArguments ...*StarlarkFunctionArgument,
 ) *KurtosisPackageContent {
 	return &KurtosisPackageContent{
@@ -67,5 +71,6 @@ func NewKurtosisPackageContent(
 		Version:               version,
 		IconURL:               iconURL,
 		RunCount:              runCount,
+		Locator:               locator,
 	}
 }

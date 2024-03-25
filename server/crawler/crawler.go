@@ -553,8 +553,6 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.RepositoryMetadata.DefaultBranch,
 	)
 
-	packageLocator := path.Join(kurtosisPackageContent.Name, consts.StarlarkMainDotStarFileName)
-
 	return api_constructors.NewKurtosisPackage(
 		kurtosisPackageContent.Name,
 		kurtosisPackageContent.Description,
@@ -567,7 +565,7 @@ func convertRepoContentToApi(kurtosisPackageContent *KurtosisPackageContent) *ge
 		kurtosisPackageContent.Version,
 		kurtosisPackageContent.IconURL,
 		kurtosisPackageContent.RunCount,
-		packageLocator,
+		kurtosisPackageContent.Locator,
 		kurtosisPackageArgsApi...,
 	)
 }
@@ -733,6 +731,7 @@ func extractKurtosisPackageContent(
 		commitSHA,
 		packageIconURL,
 		runCount,
+		path.Join(kurtosisPackageName, consts.StarlarkMainDotStarFileName),
 		mainDotStarParsedContent.Arguments...,
 	), true, nil
 }
@@ -752,12 +751,14 @@ func extractDockerComposePackageContent(
 
 	var dockerComposeYamlFileContentResult *github.RepositoryContent
 	var dockerComposeYamlFilePath string
+	var composeLocator string
 	for _, dockerComposeYamlVariation := range supportedDockerComposeYmlFilenames {
 		dockerComposeYamlFilePath = path.Join(packageRepositoryMetadata.RootPath, dockerComposeYamlVariation)
 
 		yamlFileContentResult, _, resp, err := client.Repositories.GetContents(ctx, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, dockerComposeYamlFilePath, repoGetContentOpts)
 		if err == nil && resp != nil && resp.StatusCode != http.StatusNotFound {
 			dockerComposeYamlFileContentResult = yamlFileContentResult
+			composeLocator = dockerComposeYamlVariation
 			break
 		}
 	}
@@ -779,10 +780,12 @@ func extractDockerComposePackageContent(
 		}
 	}
 
+	kurtosisPackageName := normalizeName(fmt.Sprintf("%s/%s/%s/%s", githubUrl, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath))
+
 	// no notion of main dot star in docker compose so leave main.star specific fields blank for now
 	packageContent := NewKurtosisPackageContent(
 		packageRepositoryMetadata,
-		normalizeName(fmt.Sprintf("%s/%s/%s/%s", githubUrl, packageRepositoryMetadata.Owner, packageRepositoryMetadata.Name, packageRepositoryMetadata.RootPath)),
+		kurtosisPackageName,
 		"",
 		"",
 		"",
@@ -791,6 +794,7 @@ func extractDockerComposePackageContent(
 		"",
 		"",
 		0,
+		path.Join(kurtosisPackageName, composeLocator),
 		envFileContentArguments...,
 	)
 

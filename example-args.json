@@ -1,0 +1,20 @@
+{
+  "is_running_in_prod": "false",
+  "github_user_token": "",
+  "kurtosis_package_indexer_version": "0.0.32",
+  "snowflake_env": {
+    "kurtosis_snowflake_account_identifier": "",
+    "kurtosis_snowflake_db": "",
+    "kurtosis_snowflake_password": "",
+    "kurtosis_snowflake_role": "",
+    "kurtosis_snowflake_user": "",
+    "kurtosis_snowflake_warehouse": ""
+  },
+  "aws_env": {
+    "aws_access_key_id": "",
+    "aws_secret_access_key": "",
+    "aws_bucket_region": "",
+    "aws_bucket_name": "",
+    "aws_bucket_user_folder": ""
+  }
+}

@@ -17,9 +17,7 @@ COPY server/go.mod server/go.sum ./
 RUN go mod download
 
 # Now, copy the source code into the container
-COPY ./server ./server
-
-WORKDIR /app/server
+COPY ./server .
 
 # Build the Go app
 RUN go build -o kurtosis-package-indexer 

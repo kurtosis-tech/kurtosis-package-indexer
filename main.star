@@ -149,4 +149,4 @@ def get_snowflake_env(sf_env):
         role=sf_role,
         user=sf_user,
         warehouse=sf_warehouse,
-    )    
+    )

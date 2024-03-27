@@ -17,7 +17,7 @@ COPY server/go.mod server/go.sum ./
 RUN go mod download
 
 # Now, copy the source code into the container
-COPY . .
+COPY ./server ./server
 
 WORKDIR /app/server
 

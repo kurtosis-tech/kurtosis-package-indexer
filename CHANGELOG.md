@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.33](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.32...0.0.33) (2024-03-27)
+
+
+### Features
+
+* update kurtosis package to use indexer locally ([#124](https://github.com/kurtosis-tech/kurtosis-package-indexer/issues/124)) ([77faf3e](https://github.com/kurtosis-tech/kurtosis-package-indexer/commit/77faf3ed8f38e1b69d8042423f588444b31e26f4))
+
 ## [0.0.32](https://github.com/kurtosis-tech/kurtosis-package-indexer/compare/0.0.31...0.0.32) (2024-03-25)
 
 

@@ -1,37 +1,25 @@
 etcd_module = import_module("github.com/kurtosis-tech/etcd-package/main.star")
 
 KURTOSIS_PACKAGE_INDEXER_IMAGE = "kurtosistech/kurtosis-package-indexer"
-
 KURTOSIS_PACKAGE_INDEXER_DATA_DIR = "/data"
 KURTOSIS_PACKAGE_INDEXER_PORT_ID = "http"
 KURTOSIS_PACKAGE_INDEXER_PORT_NUM = 9770
-
 AWS_S3_BUCKET_SUBFOLDER = "kurtosis-package-indexer"
-
-# Kurtosis Snowflake Account Keys
-KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY = "kurtosis_snowflake_account_identifier"
-KURTOSIS_SNOWFLAKE_DB_KEY = "kurtosis_snowflake_db"
-KURTOSIS_SNOWFLAKE_PASSWORD_KEY = "kurtosis_snowflake_password"
-KURTOSIS_SNOWFLAKE_ROLE_KEY = "kurtosis_snowflake_role"
-KURTOSIS_SNOWFLAKE_USER_KEY = "kurtosis_snowflake_user"
-KURTOSIS_SNOWFLAKE_WAREHOUSE_KEY = "kurtosis_snowflake_warehouse"
-
-DEFAULT_LOGGER_LOG_LEVEL = "debug"
-
 
 def run(
     plan,
+    is_running_in_prod="false",
     github_user_token="",
-    kurtosis_package_indexer_version="0.0.7",
+    kurtosis_package_indexer_version="",
     snowflake_env={},
     aws_env={},
-    is_running_in_ci="false",
 ):
     """Runs a Kurtosis package indexer service, listening on port 9770
 
     Args:
-        github_user_token (string): The GitHub user token to use to authenticate to GitHub
-        kurtosis_package_indexer_version (string): The version of the container image to use
+        is_running_in_prod(string): Set to false if devving locally or in CI. (this will ignore any snowflake settings)
+        github_user_token (string): The GitHub user token to use to authenticate to GitHub. If empty, uses aws_env values set to retrieve a token from S3.
+        kurtosis_package_indexer_version (string): The version of the container image to use. If not specified, the local code will be used to build an image.
         snowflake_env (dict[string, string]): The Snowflake information required to connect to the Snowflake account
             to get some package metrics from this storage.
             The dictionary should contain the following fields:
@@ -58,7 +46,6 @@ def run(
                 "aws_bucket_user_folder": "<OPTIONAL_FOLDER_IN_AWS_BUCKET>",
             }
             ```
-        is_running_in_ci (string): The string boolean that indicates if the package is running in CI
     Returns:
         The service object containing useful information on the running Kurtosis Package Indexer. Typically:
         ```
@@ -70,25 +57,14 @@ def run(
         }
         ```
     """
+    snowflake_env = get_snowflake_env(snowflake_env)
+    aws_env = get_aws_env(aws_env) 
 
-    indexer_env_vars = get_snowflake_env(snowflake_env, is_running_in_ci)
-    if len(github_user_token) > 0:
-        indexer_env_vars["GITHUB_USER_TOKEN"] = github_user_token
-    else:
-        aws_env = get_aws_env(aws_env)
-        indexer_env_vars["AWS_ACCESS_KEY_ID"] = aws_env.access_key_id
-        indexer_env_vars["AWS_SECRET_ACCESS_KEY"] = aws_env.secret_access_key
-        indexer_env_vars["AWS_BUCKET_REGION"] = aws_env.bucket_region
-        indexer_env_vars["AWS_BUCKET_NAME"] = aws_env.bucket_name
-        indexer_env_vars["AWS_BUCKET_FOLDER"] = "{}/{}".format(aws_env.bucket_user_folder, AWS_S3_BUCKET_SUBFOLDER)
-
-    indexer_env_vars["LOGGER_LOG_LEVEL"] = DEFAULT_LOGGER_LOG_LEVEL
-
-    image_name_and_version = "{}:{}".format(KURTOSIS_PACKAGE_INDEXER_IMAGE, kurtosis_package_indexer_version)
     indexer_service = plan.add_service(
         name="kurtosis-package-indexer",
         config=ServiceConfig(
-            image=image_name_and_version,
+            # use local built docker image if no container image version specified
+            image=ImageBuildSpec(image_name="kurtosis-package-indexer", build_context_dir=".") if kurtosis_package_indexer_version == "" else "{}:{}".format(KURTOSIS_PACKAGE_INDEXER_IMAGE, kurtosis_package_indexer_version),
             ports={
                 KURTOSIS_PACKAGE_INDEXER_PORT_ID: PortSpec(KURTOSIS_PACKAGE_INDEXER_PORT_NUM),
             },
@@ -97,7 +73,22 @@ def run(
                     persistent_key="kurtosis-indexer-data-dir"
                 ),
             },
-            env_vars=indexer_env_vars,
+            env_vars= {
+                "LOGGER_LOG_LEVEL": "debug",
+                "GITHUB_USER_TOKEN": github_user_token, # if empty, AWS values are used to retrieve a github token from s3
+                "AWS_ACCESS_KEY_ID": aws_env.access_key_id,
+                "AWS_SECRET_ACCESS_KEY": aws_env.secret_access_key,
+                "AWS_BUCK={}ET_REGION": aws_env.bucket_region,
+                "AWS_BUCKET_NAME": aws_env.bucket_name,
+                "AWS_BUCKET_FOLDER": "{}/{}".format(aws_env.bucket_user_folder, AWS_S3_BUCKET_SUBFOLDER),
+                "CI": "false" if is_running_in_prod == "true" else "true", # if true, the snowflake env values will be ignored
+                "KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER": snowflake_env.account_identifier,
+                "KURTOSIS_SNOWFLAKE_DB":snowflake_env.db,
+                "KURTOSIS_SNOWFLAKE_PASSWORD": snowflake_env.password,
+                "KURTOSIS_SNOWFLAKE_ROLE": snowflake_env.role,
+                "KURTOSIS_SNOWFLAKE_USER": snowflake_env.user,
+                "KURTOSIS_SNOWFLAKE_WAREHOUSE": snowflake_env.warehouse,
+            },
             ready_conditions=ReadyCondition(
                 recipe=PostHttpRequestRecipe(
                     port_id=KURTOSIS_PACKAGE_INDEXER_PORT_ID,
@@ -115,7 +106,6 @@ def run(
         hostname=indexer_service.hostname,
         ip_address=indexer_service.ip_address,
         name=indexer_service.name,
-        port_number=indexer_service.ports[KURTOSIS_PACKAGE_INDEXER_PORT_ID].number
     )
 
 
@@ -143,28 +133,20 @@ def get_aws_env(aws_env):
         bucket_user_folder=aws_bucket_user_folder,
     )
 
-def get_snowflake_env(sf_env, is_running_in_ci):
-    env_vars={}
+def get_snowflake_env(sf_env):
+     # the Snowflake values should be provided as env variables to the package
+    sf_account_identifier = sf_env["kurtosis_snowflake_account_identifier"] if "kurtosis_snowflake_account_identifier" in sf_env else ""
+    sf_db = sf_env["kurtosis_snowflake_db"] if "kurtosis_snowflake_db" in sf_env else ""
+    sf_password = sf_env["kurtosis_snowflake_password"] if "kurtosis_snowflake_password" in sf_env else ""
+    sf_role = sf_env["kurtosis_snowflake_user"] if "kurtosis_snowflake_user" in sf_env else ""
+    sf_user = sf_env["kurtosis_snowflake_role"] if "kurtosis_snowflake_role" in sf_env else ""
+    sf_warehouse = sf_env["kurtosis_snowflake_warehouse"] if "kurtosis_snowflake_warehouse" in sf_env else ""
 
-    # Snowflake won't be configured if it's running in CI to avoid using the service
-    # the `doNothingMetricsReporter` will be used instead
-    if (is_running_in_ci == "true"):
-        env_vars["CI"]= "true"
-        return env_vars
-
-    # the Snowflake values should be provided as env variables to the package
-    sf_account_identifier = sf_env[KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY] if KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER_KEY in sf_env else ""
-    sf_db = sf_env[KURTOSIS_SNOWFLAKE_DB_KEY] if KURTOSIS_SNOWFLAKE_DB_KEY in sf_env else ""
-    sf_password = sf_env[KURTOSIS_SNOWFLAKE_PASSWORD_KEY] if KURTOSIS_SNOWFLAKE_PASSWORD_KEY in sf_env else ""
-    sf_role = sf_env[KURTOSIS_SNOWFLAKE_ROLE_KEY] if KURTOSIS_SNOWFLAKE_ROLE_KEY in sf_env else ""
-    sf_user = sf_env[KURTOSIS_SNOWFLAKE_USER_KEY] if KURTOSIS_SNOWFLAKE_USER_KEY in sf_env else ""
-    sf_warehouse = sf_env[KURTOSIS_SNOWFLAKE_WAREHOUSE_KEY] if KURTOSIS_SNOWFLAKE_WAREHOUSE_KEY in sf_env else ""
-
-    env_vars["KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER"]=sf_account_identifier
-    env_vars["KURTOSIS_SNOWFLAKE_DB"]=sf_db
-    env_vars["KURTOSIS_SNOWFLAKE_PASSWORD"]=sf_password
-    env_vars["KURTOSIS_SNOWFLAKE_ROLE"]=sf_role
-    env_vars["KURTOSIS_SNOWFLAKE_USER"]=sf_user
-    env_vars["KURTOSIS_SNOWFLAKE_WAREHOUSE"]=sf_warehouse
-
-    return env_vars
+    return struct(
+        account_identifier=sf_account_identifier,
+        db=sf_db,
+        password=sf_password,
+        role=sf_role,
+        user=sf_user,
+        warehouse=sf_warehouse,
+    )

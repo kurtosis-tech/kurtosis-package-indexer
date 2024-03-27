@@ -75,3 +75,45 @@ deprecate them in order to simplify code maintenance.
 [snowflake]: https://www.snowflake.com/en/
 [gosnowflake]: https://github.com/snowflakedb/gosnowflake
 [snowflake-account-format]: https://docs.snowflake.com/en/user-guide/admin-account-identifier#format-1-preferred-account-name-in-your-organization
+
+Running as a Kurtosis Package
+-------------------
+The following arguments that can be passed to the package:
+```json
+{
+  // Set to false if devving locally or in CI, this will not setup metrics reporting
+  // If set to true, snowflake fields must be set
+  "is_running_in_prod": "false",
+
+  // Token to authenticate github
+  // If empty, aws info will be used to retrieve token
+  "github_user_token": "",
+
+  // Optionally, a custom version of the indexer image can be used. Useful to run a dev version, like on CI
+  // If empty, will build a local image based on repo code
+  "kurtosis_package_indexer_version": "0.0.32",
+
+  // Snowflake fields for setting up metrics reporting if running in production
+  "snowflake_env": {
+    "kurtosis_snowflake_account_identifier": "<KURTOSIS_SNOWFLAKE_ACCOUNT_IDENTIFIER>",
+    "kurtosis_snowflake_db": "<KURTOSIS_SNOWFLAKE_DB>",
+    "kurtosis_snowflake_password": "<KURTOSIS_SNOWFLAKE_PASSWORD>",
+    "kurtosis_snowflake_role": "<KURTOSIS_SNOWFLAKE_ROLE>",
+    "kurtosis_snowflake_user": "<KURTOSIS_SNOWFLAKE_USER>",
+    "kurtosis_snowflake_warehouse": "<KURTOSIS_SNOWFLAKE_WAREHOUSE>"
+  },
+
+  // If it is expected that the service will get the Github user token from an S3 bucket, set aws fields
+  // `aws_bucket_user_folder` can remain empty if the file containing the token is at the root of the bucket
+  "aws_env": {
+    "aws_access_key_id": "<AWS_KEY_ID_TO_AUTHENTICATE>",
+    "aws_secret_access_key": "<AWS_SECRET_ACCESS_KEY_TO_AUTHENTICATE>",
+    "aws_bucket_region": "<AWS_BUCKET_REGION>",
+    "aws_bucket_name": "<AWS_BUCKET_NAME>",
+    "aws_bucket_user_folder": "<OPTIONAL_FOLDER_IN_AWS_BUCKET>"
+  }
+}
+```
+
+Note that when running this package on Kurtosis cloud, the package will naturally use the AWS environment variable
+automatically provided to the package to fetch the GitHub token inside AWS S3.

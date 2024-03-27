@@ -70,7 +70,6 @@ jobs:
       - run: |
           set -euo pipefail
           source server/scripts/_constants.env
-          docker build -t "${IMAGE_ORG_AND_REPO}:dev" -f server/Dockerfile server/
 
       # Checking the CircleCi built-in CI env vars
       - run: |
@@ -79,7 +78,7 @@ jobs:
 
       - run: |
           set -euo pipefail
-          kurtosis run ./kurtosis/main.star --enclave ci-check "{\"kurtosis_package_indexer_version\": \"dev\", \"github_user_token\": \"${KURTOSISBOT_GITHUB_TOKEN}\", \"is_running_in_ci\": \"${CI}\"}"
+          kurtosis run . --enclave ci-check "{\"github_user_token\": \"${KURTOSISBOT_GITHUB_TOKEN}\", \"is_running_in_prod\": \"false\"}"
 
   publish_kurtosis_typescript_libs:
     docker:

@@ -1,0 +1,4 @@
+{
+  "is_running_in_prod": "false",
+  "github_user_token": "<github personal access token>"
+}
